@@ -1,12 +1,17 @@
 import React from 'react';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
 
+
 import CustomerScreen from '../screens/Customers/CustomerScreen';
 import AddCustomerScreen from '../screens/Customers/AddCustomerScreen';
 
+import {Customer} from '../types/customer';
+
 export type CustomerStackParamList = {
   CustomerList: undefined;
-  AddCustomer: undefined;
+  AddCustomer: {
+    customer?: Customer;
+  };
 };
 
 const Stack = createNativeStackNavigator<CustomerStackParamList>();

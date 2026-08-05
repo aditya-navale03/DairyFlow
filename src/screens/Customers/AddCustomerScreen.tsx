@@ -1,4 +1,19 @@
-import {addCustomer} from '../../services/customer/customerService';
+
+import {useRoute} from '@react-navigation/native';
+import {RouteProp} from '@react-navigation/native';
+
+type RouteProps = RouteProp<
+  CustomerStackParamList,
+  'AddCustomer'
+>;
+
+import CustomerForm from '../../components/customer/CustomerForm';
+
+import {
+  addCustomer,
+  updateCustomer,
+} from '../../services/customer/customerService';
+
 import {useNavigation} from '@react-navigation/native';
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {CustomerStackParamList} from '../../navigation/CustomerNavigator';
@@ -12,25 +27,36 @@ import {
   SafeAreaView,
   StyleSheet,
   Text,
-  TouchableOpacity,
 } from 'react-native';
 
 import React, {useState} from 'react';
 
-import AppTextInput from '../../components/common/AppTextInput';
 export default function AddCustomerScreen() {
-  const [name, setName] = useState('');
-  const [mobile, setMobile] = useState('');
-  const [village, setVillage] = useState('');
-  const [rate, setRate] = useState('');
+
+  const route = useRoute<RouteProps>();
+
+const customer = route.params?.customer;
+const [name, setName] = useState(customer?.name ?? '');
+const [mobile, setMobile] = useState(customer?.mobile ?? '');
+const [village, setVillage] = useState(customer?.village ?? '');
+const [rate, setRate] = useState(customer?.rate?.toString() ?? '');
 const navigation = useNavigation<NavigationProp>();
   const onSave = async () => {
   if (!name || !mobile || !village || !rate) {
     Alert.alert('Validation', 'Please fill all fields');
     return;
   }
+try {
+  if (customer?.id) {
+    await updateCustomer(customer.id, {
+      name,
+      mobile,
+      village,
+      rate: Number(rate),
+    });
 
-  try {
+    Alert.alert('Success', 'Customer updated successfully');
+  } else {
     await addCustomer({
       name,
       mobile,
@@ -41,55 +67,36 @@ const navigation = useNavigation<NavigationProp>();
     });
 
     Alert.alert('Success', 'Customer added successfully');
-
-    navigation.goBack();
-  } catch (error) {
-    console.log(error);
-    Alert.alert('Error', 'Failed to save customer');
   }
+
+  navigation.goBack();
+} catch (error) {
+  console.log(error);
+  Alert.alert('Error', 'Operation failed');
+}
 };
 
-  return (
-    <SafeAreaView style={styles.container}>
-      <Text style={styles.title}>Add Customer</Text>
-
-<AppTextInput        placeholder="Customer Name"
-        placeholderTextColor="#888"
-        style={styles.input}
-        value={name}
-        onChangeText={setName}
-      />
-
-<AppTextInput        placeholder="Mobile Number"
-        placeholderTextColor="#888"
-        keyboardType="phone-pad"
-        style={styles.input}
-        value={mobile}
-        onChangeText={setMobile}
-      />
-
-<AppTextInput        placeholder="Village"
-        placeholderTextColor="#888"
-        style={styles.input}
-        value={village}
-        onChangeText={setVillage}
-      />
-
-<AppTextInput        placeholder="Rate per Litre"
-        placeholderTextColor="#888"
-        keyboardType="numeric"
-        style={styles.input}
-        value={rate}
-        onChangeText={setRate}
-      />
-
-      <TouchableOpacity
-        style={styles.button}
-        onPress={onSave}>
-        <Text style={styles.buttonText}>SAVE CUSTOMER</Text>
-      </TouchableOpacity>
-    </SafeAreaView>
-  );
+ return (
+  <SafeAreaView style={styles.container}>
+<Text style={styles.title}>
+  {customer ? 'Edit Customer' : 'Add Customer'}
+</Text>
+    <CustomerForm
+      name={name}
+      mobile={mobile}
+      village={village}
+      rate={rate}
+      setName={setName}
+      setMobile={setMobile}
+      setVillage={setVillage}
+      setRate={setRate}
+buttonTitle={
+  customer ? 'UPDATE CUSTOMER' : 'SAVE CUSTOMER'
+}
+      onSubmit={onSave}
+    />
+  </SafeAreaView>
+);
 }
 
 const styles = StyleSheet.create({
@@ -104,28 +111,5 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#1976D2',
     marginBottom: 25,
-  },
-
-  input: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    padding: 15,
-    marginBottom: 15,
-  },
-
-  button: {
-    backgroundColor: '#1976D2',
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginTop: 10,
-  },
-
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '700',
   },
 });

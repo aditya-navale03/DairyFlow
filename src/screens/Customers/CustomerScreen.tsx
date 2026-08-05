@@ -8,7 +8,17 @@ import CustomerCard from '../../components/customer/CustomerCard';
 import {Customer} from '../../types/customer';
 import {getCustomers} from '../../services/customer/customerService';
 
-import {useNavigation} from '@react-navigation/native';
+import {
+  deleteCustomer,
+} from '../../services/customer/customerService';
+
+import {Alert} from 'react-native';
+
+import {
+  useNavigation,
+  useFocusEffect,
+} from '@react-navigation/native';
+
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {CustomerStackParamList} from '../../navigation/CustomerNavigator';
 
@@ -31,10 +41,12 @@ import {
 export default function CustomerScreen() {
 
   const [customers, setCustomers] = useState<Customer[]>([]);
-
-  useEffect(() => {
-  loadCustomers();
-}, []);
+const [search, setSearch] = useState('');
+  useFocusEffect(
+  React.useCallback(() => {
+    loadCustomers();
+  }, []),
+);
 
 const loadCustomers = async () => {
   try {
@@ -46,28 +58,71 @@ const loadCustomers = async () => {
 };
     const navigation = useNavigation<NavigationProp>();
 
+    const filteredCustomers = customers.filter(customer =>
+  customer.name.toLowerCase().includes(search.toLowerCase()) ||
+  customer.mobile.includes(search),
+);
+
+const handleDelete = (customer: Customer) => {
+  Alert.alert(
+    'Delete Customer',
+    `Are you sure you want to delete ${customer.name}?`,
+    [
+      {
+        text: 'Cancel',
+        style: 'cancel',
+      },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            if (customer.id) {
+              await deleteCustomer(customer.id);
+              loadCustomers();
+            }
+          } catch (error) {
+            Alert.alert('Error', 'Failed to delete customer');
+          }
+        },
+      },
+    ],
+  );
+};
     
   return (
     <SafeAreaView style={styles.container}>
       <Text style={styles.title}>Customers</Text>
+<TextInput
+  placeholder="Search customer..."
+  style={styles.search}
+  value={search}
+  onChangeText={setSearch}
+/>
 
-      <TextInput
-        placeholder="Search customer..."
-        style={styles.search}
-      />
 <TouchableOpacity
   style={styles.addButton}
-  onPress={() => navigation.navigate('AddCustomer')}>
+  onPress={() => navigation.navigate('AddCustomer' , {
+    customer: undefined,
+  })}>
   <Text style={styles.addButtonText}>
     + Add Customer
   </Text>
 </TouchableOpacity>
 <FlatList
-  data={customers}
+data={filteredCustomers}
   keyExtractor={(item) => item.id ?? Math.random().toString()}
   renderItem={({item}) => (
-    <CustomerCard customer={item} />
-  )}
+<CustomerCard
+  customer={item}
+  onEdit={() =>
+    navigation.navigate('AddCustomer', {
+      customer: item,
+    })
+  }
+  onDelete={() => handleDelete(item)}
+/>
+)}
 />
     </SafeAreaView>
   );

@@ -38,12 +38,12 @@ export default function CustomerCard({
 
       <View style={styles.actions}>
         <TouchableOpacity onPress={onEdit}>
-          <Icon
-            name="pencil"
-            size={22}
-            color="#1976D2"
-          />
-        </TouchableOpacity>
+  <Icon
+    name="pencil"
+    size={22}
+    color="#1976D2"
+  />
+</TouchableOpacity>
 
         <TouchableOpacity
           onPress={onDelete}
