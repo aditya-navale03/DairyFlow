@@ -1,4 +1,13 @@
 
+import React, {useEffect, useState} from 'react';
+import {FlatList} from 'react-native';
+
+
+import CustomerCard from '../../components/customer/CustomerCard';
+
+import {Customer} from '../../types/customer';
+import {getCustomers} from '../../services/customer/customerService';
+
 import {useNavigation} from '@react-navigation/native';
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {CustomerStackParamList} from '../../navigation/CustomerNavigator';
@@ -8,7 +17,6 @@ type NavigationProp = NativeStackNavigationProp<
   'CustomerList'
 >;
 
-import React from 'react';
 import {
   SafeAreaView,
   StyleSheet,
@@ -22,6 +30,20 @@ import {
 
 export default function CustomerScreen() {
 
+  const [customers, setCustomers] = useState<Customer[]>([]);
+
+  useEffect(() => {
+  loadCustomers();
+}, []);
+
+const loadCustomers = async () => {
+  try {
+    const data = await getCustomers();
+    setCustomers(data);
+  } catch (error) {
+    console.log(error);
+  }
+};
     const navigation = useNavigation<NavigationProp>();
 
     
@@ -40,12 +62,13 @@ export default function CustomerScreen() {
     + Add Customer
   </Text>
 </TouchableOpacity>
-
-      <View style={styles.emptyContainer}>
-        <Text style={styles.emptyText}>
-          No customers found
-        </Text>
-      </View>
+<FlatList
+  data={customers}
+  keyExtractor={(item) => item.id ?? Math.random().toString()}
+  renderItem={({item}) => (
+    <CustomerCard customer={item} />
+  )}
+/>
     </SafeAreaView>
   );
 }

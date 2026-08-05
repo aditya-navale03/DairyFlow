@@ -1,4 +1,4 @@
-import {addCustomer} from '../../services/customer/customerServices';
+import {addCustomer} from '../../services/customer/customerService';
 import {useNavigation} from '@react-navigation/native';
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {CustomerStackParamList} from '../../navigation/CustomerNavigator';
