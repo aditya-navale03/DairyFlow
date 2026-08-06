@@ -7,11 +7,13 @@ type Props = {
   mobile: string;
   village: string;
   rate: string;
+  collectionOrder: string;
 
   setName: (value: string) => void;
   setMobile: (value: string) => void;
   setVillage: (value: string) => void;
   setRate: (value: string) => void;
+  setCollectionOrder: (value: string) => void;
 
   buttonTitle: string;
   onSubmit: () => void;
@@ -22,10 +24,12 @@ export default function CustomerForm({
   mobile,
   village,
   rate,
+  collectionOrder,
   setName,
   setMobile,
   setVillage,
   setRate,
+  setCollectionOrder,
   buttonTitle,
   onSubmit,
 }: Props) {
@@ -56,6 +60,13 @@ export default function CustomerForm({
         keyboardType="numeric"
         onChangeText={setRate}
       />
+
+      <AppTextInput
+  placeholder="Collection Number"
+  keyboardType="numeric"
+  value={collectionOrder}
+  onChangeText={setCollectionOrder}
+/>
 
       <TouchableOpacity
         style={styles.button}

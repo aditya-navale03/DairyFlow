@@ -7,12 +7,34 @@ import {
   deleteDoc,
   doc,
   serverTimestamp,
+  query,
+where,
+orderBy,
+writeBatch,
 } from '@react-native-firebase/firestore';
 
 import {Customer} from '../../types/customer';
 
 const db = getFirestore();
 const customersRef = collection(db, 'customers');
+
+export const createCustomer = async (
+  customer: Customer,
+) => {
+
+};
+
+export const getCustomerByCollectionOrder = async (
+  collectionOrder: number,
+) => {
+  const customers = await getCustomers();
+
+  return (
+    customers.find(
+      customer => customer.collectionOrder === collectionOrder,
+    ) ?? null
+  );
+};
 
 export const addCustomer = async (customer: Customer) => {
   return await addDoc(customersRef, {
@@ -24,10 +46,14 @@ export const addCustomer = async (customer: Customer) => {
 export const getCustomers = async () => {
   const snapshot = await getDocs(customersRef);
 
-  return snapshot.docs.map(item => ({
-    id: item.id,
-    ...item.data(),
-  })) as Customer[];
+  const customers = snapshot.docs.map(item => ({
+  id: item.id,
+  ...item.data(),
+})) as Customer[];
+
+return customers.sort(
+  (a, b) => a.collectionOrder - b.collectionOrder,
+);
 };
 
 export const updateCustomer = async (

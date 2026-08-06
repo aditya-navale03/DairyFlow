@@ -2,7 +2,8 @@ import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 
 import DashboardScreen from '../screens/Dashboard/DashboardScreen';
-import CustomerNavigator from './CustomerNavigator'; import MilkCollectionScreen from '../screens/MilkCollection/MilkCollectionScreen';
+import CustomerNavigator from './CustomerNavigator';
+import CollectionScreen from '../screens/Collection/CollectionScreen';
 import BillingScreen from '../screens/Billing/BillingScreen';
 import SettingsScreen from '../screens/Settings/SettingsScreen';
 
@@ -56,8 +57,10 @@ export default function BottomTabNavigator() {
                 },
             })}>
             <Tab.Screen name="Dashboard" component={DashboardScreen} />
-            <Tab.Screen name="Customers" component={CustomerNavigator}/>
-            <Tab.Screen name="Collection" component={MilkCollectionScreen} />
+            <Tab.Screen name="Customers" component={CustomerNavigator} />
+
+            <Tab.Screen name="Collection" component={CollectionScreen} />
+            
             <Tab.Screen name="Billing" component={BillingScreen} />
             <Tab.Screen name="Settings" component={SettingsScreen} />
         </Tab.Navigator>

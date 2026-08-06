@@ -4,6 +4,7 @@ export interface Customer {
   mobile: string;
   village: string;
   rate: number;
+  collectionOrder: number;
   isActive: boolean;
   createdAt: Date;
 }

@@ -4,7 +4,11 @@ export interface MilkCollection {
   customerId: string;
   customerName: string;
 
-  date: string;
+  collectionOrder: number;
+
+  date: Date;
+
+  dateString: string;
 
   session: 'Morning' | 'Evening';
 
@@ -16,5 +20,5 @@ export interface MilkCollection {
 
   amount: number;
 
-  createdAt?: any;
+  createdAt?: Date;
 }

@@ -7,23 +7,26 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
-import {Customer} from '../../types/customer';
+import { Customer } from '../../types/customer';
 
 type Props = {
   customer: Customer;
+  onCollect?: () => void;
   onEdit?: () => void;
   onDelete?: () => void;
 };
 
 export default function CustomerCard({
   customer,
+  onCollect,
   onEdit,
   onDelete,
 }: Props) {
   return (
     <View style={styles.card}>
-      <Text style={styles.name}>{customer.name}</Text>
-
+      <Text style={styles.name}>
+        {customer.collectionOrder}. {customer.name}
+      </Text>
       <Text style={styles.info}>
         📞 {customer.mobile}
       </Text>
@@ -37,17 +40,32 @@ export default function CustomerCard({
       </Text>
 
       <View style={styles.actions}>
+
+        <TouchableOpacity
+          onPress={onCollect}
+          style={styles.collectButton}>
+          <Icon
+            name="cup-water"
+            size={20}
+            color="#fff"
+          />
+
+          <Text style={styles.collectText}>
+            Collect
+          </Text>
+        </TouchableOpacity>
+
         <TouchableOpacity onPress={onEdit}>
-  <Icon
-    name="pencil"
-    size={22}
-    color="#1976D2"
-  />
-</TouchableOpacity>
+          <Icon
+            name="pencil"
+            size={22}
+            color="#1976D2"
+          />
+        </TouchableOpacity>
 
         <TouchableOpacity
           onPress={onDelete}
-          style={{marginLeft: 20}}>
+          style={{ marginLeft: 20 }}>
           <Icon
             name="delete"
             size={22}
@@ -83,5 +101,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'flex-end',
     marginTop: 12,
+  },
+
+  collectButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#2E7D32',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginRight: 12,
+  },
+
+  collectText: {
+    color: '#fff',
+    marginLeft: 6,
+    fontWeight: '600',
   },
 });

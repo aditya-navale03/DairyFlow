@@ -3,49 +3,37 @@ import {
   collection,
   addDoc,
   getDocs,
-  updateDoc,
-  deleteDoc,
-  doc,
-  serverTimestamp,
+  query,
+  where,
 } from '@react-native-firebase/firestore';
 
 import {MilkCollection} from '../../types/collection';
 
 const db = getFirestore();
 
-const collectionRef = collection(db, 'milkCollections');
-
-export const addCollection = async (
+export const addMilkCollection = async (
   data: MilkCollection,
 ) => {
-  return await addDoc(collectionRef, {
-    ...data,
-    createdAt: serverTimestamp(),
-  });
+  await addDoc(
+    collection(db, 'collections'),
+    data,
+  );
 };
 
-export const getCollections = async () => {
-  const snapshot = await getDocs(collectionRef);
+export const getCollectionsByDate = async (
+  date: string,
+  session: 'Morning' | 'Evening',
+) => {
+  const q = query(
+    collection(db, 'collections'),
+    where('dateString', '==', date),
+    where('session', '==', session),
+  );
 
-  return snapshot.docs.map(item => ({
-    id: item.id,
-    ...item.data(),
+  const snapshot = await getDocs(q);
+
+  return snapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data(),
   })) as MilkCollection[];
-};
-
-export const updateCollection = async (
-  id: string,
-  data: Partial<MilkCollection>,
-) => {
-  const ref = doc(db, 'milkCollections', id);
-
-  return await updateDoc(ref, data);
-};
-
-export const deleteCollection = async (
-  id: string,
-) => {
-  const ref = doc(db, 'milkCollections', id);
-
-  return await deleteDoc(ref);
 };
