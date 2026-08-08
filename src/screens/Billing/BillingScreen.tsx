@@ -4,8 +4,17 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
+  TouchableOpacity,
   View,
+  Alert,
 } from 'react-native';
+
+
+import {
+  saveBillPayment,
+  subscribeToBillPayments,
+} from '../../services/billing/billingService';
 
 import AppHeader from '../../components/common/AppHeader';
 
@@ -18,10 +27,30 @@ import {
 import {Customer} from '../../types/customer';
 import {MilkCollection} from '../../types/collection';
 
-export default function BillingScreen() {
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [collections, setCollections] = useState<MilkCollection[]>([]);
 
+export default function BillingScreen() {
+  const [customers, setCustomers] =
+    useState<Customer[]>([]);
+
+  const [morningCollections, setMorningCollections] =
+    useState<MilkCollection[]>([]);
+
+  const [eveningCollections, setEveningCollections] =
+    useState<MilkCollection[]>([]);
+
+
+  const [cashInputs, setCashInputs] =
+    useState<{[customerId: string]: string}>({});
+
+
+    const [savedPayments, setSavedPayments] =
+  useState<{
+    [customerId: string]: {
+      paidAmount: number;
+      remainingAmount: number;
+      status: 'Paid' | 'Pending';
+    };
+  }>({});
   useEffect(() => {
     const unsubscribeCustomers =
       subscribeToCustomers(data => {
@@ -32,23 +61,12 @@ export default function BillingScreen() {
       .toISOString()
       .split('T')[0];
 
-    let morning: MilkCollection[] = [];
-    let evening: MilkCollection[] = [];
-
-    const updateCollections = () => {
-      setCollections([
-        ...morning,
-        ...evening,
-      ]);
-    };
-
     const unsubscribeMorning =
       subscribeToCollectionsByDate(
         today,
         'Morning',
         data => {
-          morning = data;
-          updateCollections();
+          setMorningCollections(data);
         },
       );
 
@@ -57,39 +75,173 @@ export default function BillingScreen() {
         today,
         'Evening',
         data => {
-          evening = data;
-          updateCollections();
+          setEveningCollections(data);
         },
       );
+
+      const unsubscribePayments =
+  subscribeToBillPayments(
+    today,
+    bills => {
+      const paymentData: {
+        [customerId: string]: {
+          paidAmount: number;
+          remainingAmount: number;
+          status: 'Paid' | 'Pending';
+        };
+      } = {};
+
+      bills.forEach(bill => {
+        paymentData[bill.customerId] = {
+          paidAmount: Number(
+            bill.paidAmount || 0,
+          ),
+          remainingAmount: Number(
+            bill.remainingAmount || 0,
+          ),
+          status: bill.status,
+        };
+      });
+
+      setSavedPayments(paymentData);
+    },
+  );
+  
 
     return () => {
       unsubscribeCustomers();
       unsubscribeMorning();
       unsubscribeEvening();
+      unsubscribePayments();
+
     };
   }, []);
 
-  const totalMilk = collections.reduce(
-    (total, item) =>
-      total + Number(item.quantity || 0),
-    0,
+  const getMorningQuantity = (
+    customerId: string,
+  ) => {
+    return morningCollections
+      .filter(
+        item =>
+          item.customerId === customerId,
+      )
+      .reduce(
+        (total, item) =>
+          total +
+          Number(item.quantity || 0),
+        0,
+      );
+  };
+
+  const getEveningQuantity = (
+    customerId: string,
+  ) => {
+    return eveningCollections
+      .filter(
+        item =>
+          item.customerId === customerId,
+      )
+      .reduce(
+        (total, item) =>
+          total +
+          Number(item.quantity || 0),
+        0,
+      );
+  };
+
+  const getTotalQuantity = (
+    customerId: string,
+  ) => {
+    return (
+      getMorningQuantity(customerId) +
+      getEveningQuantity(customerId)
+    );
+  };
+
+  const getTotalAmount = (
+    customerId: string,
+  ) => {
+    return getTotalQuantity(customerId) *
+      (
+        customers.find(
+          customer => customer.id === customerId,
+        )?.rate || 0
+      );
+  };
+
+const getPaidAmount = (
+  customerId: string,
+) => {
+  return (
+    savedPayments[customerId]?.paidAmount || 0
+  );
+};
+  const getRemainingAmount = (
+    customerId: string,
+  ) => {
+    return Math.max(
+      getTotalAmount(customerId) -
+        getPaidAmount(customerId),
+      0,
+    );
+  };
+const updatePayment = async (
+  customerId: string,
+) => {
+  const amount = Number(
+    cashInputs[customerId] || 0,
   );
 
-  const totalAmount = collections.reduce(
-    (total, item) =>
-      total + Number(item.amount || 0),
-    0,
-  );
+  const total =
+    getTotalAmount(customerId);
 
-  const collectedCustomers = new Set(
-    collections.map(item => item.customerId),
-  ).size;
+  if (amount < 0) {
+    Alert.alert(
+      'Invalid Amount',
+      'Enter a valid amount.',
+    );
+    return;
+  }
 
-  const pendingCustomers = Math.max(
-    customers.length - collectedCustomers,
-    0,
-  );
+  if (amount > total) {
+    Alert.alert(
+      'Invalid Amount',
+      'Paid amount cannot be greater than the bill.',
+    );
+    return;
+  }
 
+  try {
+    const today = new Date()
+      .toISOString()
+      .split('T')[0];
+
+    await saveBillPayment(
+      customerId,
+      today,
+      total,
+      amount,
+    );
+
+    setCashInputs(prev => ({
+      ...prev,
+      [customerId]: '',
+    }));
+
+    Alert.alert(
+      'Success',
+      'Payment saved successfully.',
+    );
+
+  } catch (error) {
+    console.log(error);
+
+    Alert.alert(
+      'Error',
+      'Could not save payment.',
+    );
+  }
+};
   return (
     <SafeAreaView style={styles.container}>
 
@@ -99,161 +251,245 @@ export default function BillingScreen() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}>
 
-        <Text style={styles.title}>
+        <Text style={styles.pageTitle}>
           Today's Billing
         </Text>
 
-        <View style={styles.summaryRow}>
+        {/* TABLE HEADER */}
 
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryValue}>
-              {collectedCustomers}
-            </Text>
+        <View style={styles.tableHeader}>
 
-            <Text style={styles.summaryLabel}>
-              Collected
+          <View style={styles.nameColumn}>
+            <Text style={styles.headerText}>
+              Customer
             </Text>
           </View>
 
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryValue}>
-              {pendingCustomers}
-            </Text>
-
-            <Text style={styles.summaryLabel}>
-              Pending
+          <View style={styles.smallColumn}>
+            <Text style={styles.headerText}>
+              Morning
             </Text>
           </View>
 
-        </View>
-
-        <View style={styles.summaryRow}>
-
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryValue}>
-              {totalMilk.toFixed(2)} L
-            </Text>
-
-            <Text style={styles.summaryLabel}>
-              Total Milk
+          <View style={styles.smallColumn}>
+            <Text style={styles.headerText}>
+              Evening
             </Text>
           </View>
 
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryValue}>
-              ₹{totalAmount.toFixed(2)}
-            </Text>
-
-            <Text style={styles.summaryLabel}>
-              Total Amount
+          <View style={styles.smallColumn}>
+            <Text style={styles.headerText}>
+              Total
             </Text>
           </View>
 
         </View>
 
-        <Text style={styles.sectionTitle}>
-          Customer Billing
-        </Text>
+        {/* CUSTOMER ROWS */}
 
         {customers.map(customer => {
-
-          const customerCollections =
-            collections.filter(
-              item =>
-                item.customerId ===
-                customer.id,
+          const morning =
+            getMorningQuantity(
+              customer.id!,
             );
 
-          const customerMilk =
-            customerCollections.reduce(
-              (total, item) =>
-                total +
-                Number(item.quantity || 0),
-              0,
+          const evening =
+            getEveningQuantity(
+              customer.id!,
             );
 
-          const customerAmount =
-            customerCollections.reduce(
-              (total, item) =>
-                total +
-                Number(item.amount || 0),
-              0,
-            );
-
-          const hasCollection =
-            customerCollections.length > 0;
+          const total =
+            morning + evening;
 
           return (
             <View
               key={customer.id}
-              style={styles.customerCard}>
+              style={styles.customerRow}>
 
-              <View style={styles.customerTop}>
+              <View style={styles.nameColumn}>
+                <Text
+                  style={styles.customerName}
+                  numberOfLines={1}>
+                  #{customer.collectionOrder}{' '}
+                  {customer.name}
+                </Text>
+              </View>
 
-                <View>
-                  <Text style={styles.customerName}>
+              <View style={styles.smallColumn}>
+                <Text style={styles.quantityText}>
+                  {morning.toFixed(2)}
+                </Text>
+              </View>
+
+              <View style={styles.smallColumn}>
+                <Text style={styles.quantityText}>
+                  {evening.toFixed(2)}
+                </Text>
+              </View>
+
+              <View style={styles.smallColumn}>
+                <Text style={styles.totalQuantity}>
+                  {total.toFixed(2)}
+                </Text>
+              </View>
+
+            </View>
+          );
+        })}
+
+        {/* BILLING DETAILS */}
+
+        <Text style={styles.sectionTitle}>
+          Payment Details
+        </Text>
+
+        {customers.map(customer => {
+          const total =
+            getTotalQuantity(
+              customer.id!,
+            );
+
+          const bill =
+            getTotalAmount(
+              customer.id!,
+            );
+
+          const paid =
+            getPaidAmount(
+              customer.id!,
+            );
+
+          const remaining =
+            getRemainingAmount(
+              customer.id!,
+            );
+
+          const isPaid =
+            bill > 0 &&
+            remaining === 0;
+
+          return (
+            <View
+              key={`payment-${customer.id}`}
+              style={styles.billingCard}>
+
+              <View style={styles.billingHeader}>
+
+                <View style={styles.billingCustomer}>
+                  <Text style={styles.billingName}>
                     #{customer.collectionOrder}{' '}
                     {customer.name}
                   </Text>
 
-                  <Text style={styles.customerVillage}>
-                    {customer.village}
+                  <Text style={styles.rateText}>
+                    ₹{customer.rate}/L
                   </Text>
                 </View>
 
                 <Text
                   style={[
                     styles.status,
-                    hasCollection
-                      ? styles.collected
+                    isPaid
+                      ? styles.paid
                       : styles.pending,
                   ]}>
-                  {hasCollection
-                    ? 'Collected'
-                    : 'Pending'}
+                  {isPaid
+                    ? 'PAID'
+                    : 'PENDING'}
                 </Text>
 
               </View>
 
-              <View style={styles.divider} />
-
-              <View style={styles.customerBottom}>
+              <View style={styles.amountRow}>
 
                 <View>
-                  <Text style={styles.smallLabel}>
+                  <Text style={styles.label}>
                     Milk
                   </Text>
 
-                  <Text style={styles.customerValue}>
-                    {customerMilk.toFixed(2)} L
+                  <Text style={styles.value}>
+                    {total.toFixed(2)} L
                   </Text>
                 </View>
 
                 <View>
-                  <Text style={styles.smallLabel}>
-                    Rate
+                  <Text style={styles.label}>
+                    Bill
                   </Text>
 
-                  <Text style={styles.customerValue}>
-                    ₹{customer.rate}/L
+                  <Text style={styles.billValue}>
+                    ₹{bill.toFixed(2)}
                   </Text>
                 </View>
 
                 <View>
-                  <Text style={styles.smallLabel}>
-                    Amount
+                  <Text style={styles.label}>
+                    Remaining
                   </Text>
 
-                  <Text style={styles.amountValue}>
-                    ₹{customerAmount.toFixed(2)}
+                  <Text style={styles.remainingValue}>
+                    ₹{remaining.toFixed(2)}
                   </Text>
                 </View>
+
+              </View>
+
+              {/* CASH COLLECTOR */}
+
+              <Text style={styles.cashLabel}>
+                Cash Collector / Paid
+              </Text>
+
+              <View style={styles.paymentRow}>
+
+                <TextInput
+                  style={styles.cashInput}
+                  placeholder="Enter paid amount"
+                  placeholderTextColor="#888"
+                  keyboardType="decimal-pad"
+                  value={
+                    cashInputs[
+                      customer.id!
+                    ] || ''
+                  }
+                  onChangeText={text =>
+                    setCashInputs(prev => ({
+                      ...prev,
+                      [customer.id!]: text,
+                    }))
+                  }
+                />
+
+                <TouchableOpacity
+                  style={styles.updateButton}
+                  onPress={() =>
+                    updatePayment(
+                      customer.id!,
+                    )
+                  }>
+
+                  <Text
+                    style={
+                      styles.updateButtonText
+                    }>
+                    UPDATE
+                  </Text>
+
+                </TouchableOpacity>
 
               </View>
 
             </View>
           );
         })}
+
+        {customers.length === 0 && (
+          <View style={styles.emptyCard}>
+            <Text style={styles.emptyText}>
+              No customers found.
+            </Text>
+          </View>
+        )}
 
       </ScrollView>
 
@@ -268,87 +504,118 @@ const styles = StyleSheet.create({
   },
 
   content: {
-    padding: 16,
+    padding: 14,
     paddingBottom: 30,
   },
 
-  title: {
+  pageTitle: {
     fontSize: 24,
     fontWeight: '700',
     color: '#1976D2',
-    marginBottom: 12,
+    marginBottom: 14,
   },
 
-  summaryRow: {
+  tableHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-
-  summaryCard: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    padding: 16,
-    margin: 5,
+    backgroundColor: '#1976D2',
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
     alignItems: 'center',
-    elevation: 3,
   },
 
-  summaryValue: {
-    fontSize: 22,
+  customerRow: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 14,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E5E5',
+  },
+
+  nameColumn: {
+    flex: 2.2,
+    paddingRight: 4,
+  },
+
+  smallColumn: {
+    flex: 1,
+    alignItems: 'center',
+  },
+
+  headerText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+
+  customerName: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#222',
+  },
+
+  quantityText: {
+    fontSize: 13,
+    color: '#555',
+    fontWeight: '600',
+  },
+
+  totalQuantity: {
+    fontSize: 13,
     fontWeight: '700',
     color: '#1976D2',
-  },
-
-  summaryLabel: {
-    fontSize: 13,
-    color: '#666',
-    marginTop: 5,
   },
 
   sectionTitle: {
     fontSize: 20,
     fontWeight: '700',
     color: '#222',
-    marginTop: 20,
+    marginTop: 22,
     marginBottom: 10,
   },
 
-  customerCard: {
+  billingCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 14,
     padding: 15,
-    marginBottom: 10,
+    marginBottom: 12,
     elevation: 2,
   },
 
-  customerTop: {
+  billingHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
 
-  customerName: {
+  billingCustomer: {
+    flex: 1,
+  },
+
+  billingName: {
     fontSize: 17,
     fontWeight: '700',
     color: '#222',
   },
 
-  customerVillage: {
+  rateText: {
     fontSize: 13,
     color: '#777',
-    marginTop: 4,
+    marginTop: 3,
   },
 
   status: {
-    fontSize: 13,
-    fontWeight: '700',
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 8,
+    fontSize: 12,
+    fontWeight: '700',
   },
 
-  collected: {
+  paid: {
     color: '#2E7D32',
     backgroundColor: '#E8F5E9',
   },
@@ -358,32 +625,85 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFEBEE',
   },
 
-  divider: {
-    height: 1,
-    backgroundColor: '#E0E0E0',
-    marginVertical: 12,
-  },
-
-  customerBottom: {
+  amountRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    marginTop: 15,
   },
 
-  smallLabel: {
+  label: {
     fontSize: 12,
     color: '#777',
-    marginBottom: 3,
+    marginBottom: 4,
   },
 
-  customerValue: {
+  value: {
     fontSize: 15,
     fontWeight: '700',
     color: '#333',
   },
 
-  amountValue: {
-    fontSize: 16,
+  billValue: {
+    fontSize: 15,
     fontWeight: '700',
-    color: '#2E7D32',
+    color: '#1976D2',
+  },
+
+  remainingValue: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#C62828',
+  },
+
+  cashLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#333',
+    marginTop: 15,
+    marginBottom: 8,
+  },
+
+  paymentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+
+  cashInput: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#DDD',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 15,
+    color: '#000',
+    marginRight: 8,
+  },
+
+  updateButton: {
+    backgroundColor: '#1976D2',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 10,
+  },
+
+  updateButtonText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+
+  emptyCard: {
+    backgroundColor: '#FFFFFF',
+    padding: 20,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+
+  emptyText: {
+    color: '#777',
+    fontSize: 15,
   },
 });
