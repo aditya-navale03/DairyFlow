@@ -1,17 +1,26 @@
-import React from 'react';
-import {StyleSheet, TextInput, TextInputProps} from 'react-native';
+import React, {forwardRef} from 'react';
+import {
+  StyleSheet,
+  TextInput,
+  TextInputProps,
+} from 'react-native';
 
 type Props = TextInputProps;
 
-export default function AppTextInput(props: Props) {
-  return (
-    <TextInput
-      {...props}
-      placeholderTextColor="#888"
-      style={[styles.input, props.style]}
-    />
-  );
-}
+const AppTextInput = forwardRef<TextInput, Props>(
+  (props, ref) => {
+    return (
+      <TextInput
+        ref={ref}
+        {...props}
+        placeholderTextColor="#888"
+        style={[styles.input, props.style]}
+      />
+    );
+  },
+);
+
+export default AppTextInput;
 
 const styles = StyleSheet.create({
   input: {

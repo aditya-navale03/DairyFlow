@@ -14,8 +14,6 @@ export interface MilkCollection {
 
   quantity: number;
 
-  fat: number;
-
   rate: number;
 
   amount: number;
