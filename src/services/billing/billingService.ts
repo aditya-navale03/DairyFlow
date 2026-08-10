@@ -11,28 +11,26 @@ import {
 } from '@react-native-firebase/firestore';
 
 const db = getFirestore();
-
 const billsRef = collection(db, 'bills');
 
 export const saveBillPayment = async (
   customerId: string,
-  date: string,
+  month: string,
   totalAmount: number,
   paidAmount: number,
 ) => {
   const q = query(
     billsRef,
     where('customerId', '==', customerId),
-    where('date', '==', date),
+    where('month', '==', month),
   );
 
   const snapshot = await getDocs(q);
 
-  const remainingAmount =
-    Math.max(
-      totalAmount - paidAmount,
-      0,
-    );
+  const remainingAmount = Math.max(
+    totalAmount - paidAmount,
+    0,
+  );
 
   const status =
     remainingAmount <= 0
@@ -40,15 +38,10 @@ export const saveBillPayment = async (
       : 'Pending';
 
   if (!snapshot.empty) {
-    const existingDoc =
-      snapshot.docs[0];
+    const existingDoc = snapshot.docs[0];
 
     await updateDoc(
-      doc(
-        db,
-        'bills',
-        existingDoc.id,
-      ),
+      doc(db, 'bills', existingDoc.id),
       {
         totalAmount,
         paidAmount,
@@ -62,7 +55,7 @@ export const saveBillPayment = async (
 
   await addDoc(billsRef, {
     customerId,
-    date,
+    month,
     totalAmount,
     paidAmount,
     remainingAmount,
@@ -71,29 +64,19 @@ export const saveBillPayment = async (
 };
 
 export const subscribeToBillPayments = (
-  date: string,
-  callback: (
-    bills: {
-      customerId: string;
-      totalAmount: number;
-      paidAmount: number;
-      remainingAmount: number;
-      status: 'Paid' | 'Pending';
-    }[],
-  ) => void,
+  month: string,
+  callback: (bills: any[]) => void,
 ) => {
   const q = query(
     billsRef,
-    where('date', '==', date),
+    where('month', '==', month),
   );
 
   return onSnapshot(q, snapshot => {
-    const bills = snapshot.docs.map(
-      item => ({
-        id: item.id,
-        ...item.data(),
-      }),
-    ) as any[];
+    const bills = snapshot.docs.map(item => ({
+      id: item.id,
+      ...item.data(),
+    }));
 
     callback(bills);
   });

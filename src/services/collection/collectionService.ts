@@ -88,3 +88,25 @@ export const getCustomerCollection = async (
     ...snapshot.docs[0].data(),
   } as MilkCollection;
 };
+
+export const subscribeToCollectionsByMonth = (
+  monthStart: string,
+  monthEnd: string,
+  callback: (collections: MilkCollection[]) => void,
+) => {
+  const q = query(
+    collection(db, 'collections'),
+    where('dateString', '>=', monthStart),
+    where('dateString', '<=', monthEnd),
+  );
+
+  return onSnapshot(q, snapshot => {
+    const collections =
+      snapshot.docs.map(item => ({
+        id: item.id,
+        ...item.data(),
+      })) as MilkCollection[];
+
+    callback(collections);
+  });
+};

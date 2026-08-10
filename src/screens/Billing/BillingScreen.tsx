@@ -1,4 +1,5 @@
 import React, {useEffect, useState} from 'react';
+
 import {
   SafeAreaView,
   ScrollView,
@@ -10,120 +11,170 @@ import {
   Alert,
 } from 'react-native';
 
+import AppHeader from '../../components/common/AppHeader';
+
+import {
+  subscribeToCustomers,
+} from '../../services/customer/customerService';
+
+import {
+  subscribeToCollectionsByMonth,
+} from '../../services/collection/collectionService';
 
 import {
   saveBillPayment,
   subscribeToBillPayments,
 } from '../../services/billing/billingService';
 
-import AppHeader from '../../components/common/AppHeader';
-
-import {subscribeToCustomers} from '../../services/customer/customerService';
-
-import {
-  subscribeToCollectionsByDate,
-} from '../../services/collection/collectionService';
-
 import {Customer} from '../../types/customer';
 import {MilkCollection} from '../../types/collection';
-
 
 export default function BillingScreen() {
   const [customers, setCustomers] =
     useState<Customer[]>([]);
 
-  const [morningCollections, setMorningCollections] =
+  const [collections, setCollections] =
     useState<MilkCollection[]>([]);
 
-  const [eveningCollections, setEveningCollections] =
-    useState<MilkCollection[]>([]);
-
+  const [savedPayments, setSavedPayments] =
+    useState<{
+      [customerId: string]: {
+        paidAmount: number;
+        remainingAmount: number;
+        status: 'Paid' | 'Pending';
+      };
+    }>({});
 
   const [cashInputs, setCashInputs] =
-    useState<{[customerId: string]: string}>({});
+    useState<{
+      [customerId: string]: string;
+    }>({});
 
+  const [selectedMonth, setSelectedMonth] =
+    useState(new Date());
 
-    const [savedPayments, setSavedPayments] =
-  useState<{
-    [customerId: string]: {
-      paidAmount: number;
-      remainingAmount: number;
-      status: 'Paid' | 'Pending';
-    };
-  }>({});
+  const year =
+    selectedMonth.getFullYear();
+
+  const month =
+    selectedMonth.getMonth();
+
+  const monthString =
+    `${year}-${String(month + 1).padStart(2, '0')}`;
+
+  const monthName =
+    selectedMonth.toLocaleString(
+      'default',
+      {
+        month: 'long',
+        year: 'numeric',
+      },
+    );
+
   useEffect(() => {
     const unsubscribeCustomers =
       subscribeToCustomers(data => {
         setCustomers(data);
       });
 
-    const today = new Date()
-      .toISOString()
-      .split('T')[0];
-
-    const unsubscribeMorning =
-      subscribeToCollectionsByDate(
-        today,
-        'Morning',
-        data => {
-          setMorningCollections(data);
-        },
-      );
-
-    const unsubscribeEvening =
-      subscribeToCollectionsByDate(
-        today,
-        'Evening',
-        data => {
-          setEveningCollections(data);
-        },
-      );
-
-      const unsubscribePayments =
-  subscribeToBillPayments(
-    today,
-    bills => {
-      const paymentData: {
-        [customerId: string]: {
-          paidAmount: number;
-          remainingAmount: number;
-          status: 'Paid' | 'Pending';
-        };
-      } = {};
-
-      bills.forEach(bill => {
-        paymentData[bill.customerId] = {
-          paidAmount: Number(
-            bill.paidAmount || 0,
-          ),
-          remainingAmount: Number(
-            bill.remainingAmount || 0,
-          ),
-          status: bill.status,
-        };
-      });
-
-      setSavedPayments(paymentData);
-    },
-  );
-  
-
-    return () => {
-      unsubscribeCustomers();
-      unsubscribeMorning();
-      unsubscribeEvening();
-      unsubscribePayments();
-
-    };
+    return unsubscribeCustomers;
   }, []);
+
+
+  useEffect(() => {
+  const monthStart =
+    `${year}-${String(month + 1).padStart(2, '0')}-01`;
+
+  const lastDay =
+    new Date(year, month + 1, 0).getDate();
+
+  const monthEnd =
+    `${year}-${String(month + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+
+  const unsubscribe =
+    subscribeToCollectionsByMonth(
+      monthStart,
+      monthEnd,
+      data => {
+        setCollections(data);
+      },
+    );
+
+  return unsubscribe;
+}, [year, month]);
+
+  useEffect(() => {
+    setCollections([]);
+  }, [year, month]);
+
+  useEffect(() => {
+    const unsubscribe =
+      subscribeToBillPayments(
+        monthString,
+        bills => {
+          const paymentData: {
+            [customerId: string]: {
+              paidAmount: number;
+              remainingAmount: number;
+              status: 'Paid' | 'Pending';
+            };
+          } = {};
+
+          bills.forEach(bill => {
+            paymentData[
+              bill.customerId
+            ] = {
+              paidAmount:
+                Number(
+                  bill.paidAmount || 0,
+                ),
+
+              remainingAmount:
+                Number(
+                  bill.remainingAmount || 0,
+                ),
+
+              status: bill.status,
+            };
+          });
+
+          setSavedPayments(
+            paymentData,
+          );
+        },
+      );
+
+    return unsubscribe;
+  }, [monthString]);
+
+  const previousMonth = () => {
+    setSelectedMonth(
+      new Date(
+        year,
+        month - 1,
+        1,
+      ),
+    );
+  };
+
+  const nextMonth = () => {
+    setSelectedMonth(
+      new Date(
+        year,
+        month + 1,
+        1,
+      ),
+    );
+  };
 
   const getMorningQuantity = (
     customerId: string,
   ) => {
-    return morningCollections
+    return collections
       .filter(
         item =>
-          item.customerId === customerId,
+          item.customerId === customerId &&
+          item.session === 'Morning',
       )
       .reduce(
         (total, item) =>
@@ -136,10 +187,11 @@ export default function BillingScreen() {
   const getEveningQuantity = (
     customerId: string,
   ) => {
-    return eveningCollections
+    return collections
       .filter(
         item =>
-          item.customerId === customerId,
+          item.customerId === customerId &&
+          item.session === 'Evening',
       )
       .reduce(
         (total, item) =>
@@ -158,79 +210,92 @@ export default function BillingScreen() {
     );
   };
 
-  const getTotalAmount = (
-    customerId: string,
+  const getBillAmount = (
+    customer: Customer,
   ) => {
-    return getTotalQuantity(customerId) *
-      (
-        customers.find(
-          customer => customer.id === customerId,
-        )?.rate || 0
-      );
+    return (
+      getTotalQuantity(customer.id!) *
+      Number(customer.rate || 0)
+    );
   };
 
-const getPaidAmount = (
-  customerId: string,
-) => {
-  return (
-    savedPayments[customerId]?.paidAmount || 0
-  );
-};
-  const getRemainingAmount = (
+  const getPaidAmount = (
     customerId: string,
   ) => {
+    return (
+      savedPayments[
+        customerId
+      ]?.paidAmount || 0
+    );
+  };
+
+  const getRemainingAmount = (
+    customer: Customer,
+  ) => {
+    const bill =
+      getBillAmount(customer);
+
+    const paid =
+      getPaidAmount(
+        customer.id!,
+      );
+
     return Math.max(
-      getTotalAmount(customerId) -
-        getPaidAmount(customerId),
+      bill - paid,
       0,
     );
   };
+
 const updatePayment = async (
-  customerId: string,
+  customer: Customer,
 ) => {
-  const amount = Number(
-    cashInputs[customerId] || 0,
+  const newPayment = Number(
+    cashInputs[customer.id!] || 0,
   );
 
   const total =
-    getTotalAmount(customerId);
+    getBillAmount(customer);
 
-  if (amount < 0) {
+  const alreadyPaid =
+    getPaidAmount(customer.id!);
+
+  if (newPayment <= 0) {
     Alert.alert(
       'Invalid Amount',
-      'Enter a valid amount.',
+      'Enter a valid payment amount.',
     );
     return;
   }
 
-  if (amount > total) {
+  const newTotalPaid =
+    alreadyPaid + newPayment;
+
+  if (newTotalPaid > total) {
     Alert.alert(
       'Invalid Amount',
-      'Paid amount cannot be greater than the bill.',
+      `You can collect only ₹${(
+        total - alreadyPaid
+      ).toFixed(2)} more.`,
     );
     return;
   }
 
   try {
-    const today = new Date()
-      .toISOString()
-      .split('T')[0];
-
     await saveBillPayment(
-      customerId,
-      today,
+      customer.id!,
+      monthString,
       total,
-      amount,
+      newTotalPaid,
     );
 
     setCashInputs(prev => ({
       ...prev,
-      [customerId]: '',
+      [customer.id!]: '',
     }));
 
     Alert.alert(
       'Success',
-      'Payment saved successfully.',
+      `₹${newPayment.toFixed(2)} payment added.`,
     );
 
   } catch (error) {
@@ -238,54 +303,106 @@ const updatePayment = async (
 
     Alert.alert(
       'Error',
-      'Could not save payment.',
+      'Failed to update payment.',
     );
   }
 };
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView
+      style={styles.container}>
 
       <AppHeader title="Billing" />
 
       <ScrollView
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}>
+        contentContainerStyle={
+          styles.content
+        }
+        showsVerticalScrollIndicator={
+          false
+        }>
 
         <Text style={styles.pageTitle}>
-          Today's Billing
+          Monthly Billing
         </Text>
+
+        {/* MONTH SELECTOR */}
+
+        <View
+          style={styles.monthSelector}>
+
+          <TouchableOpacity
+            style={styles.monthButton}
+            onPress={previousMonth}>
+
+            <Text
+              style={
+                styles.monthButtonText
+              }>
+              ◀
+            </Text>
+
+          </TouchableOpacity>
+
+          <Text
+            style={styles.monthText}>
+            {monthName}
+          </Text>
+
+          <TouchableOpacity
+            style={styles.monthButton}
+            onPress={nextMonth}>
+
+            <Text
+              style={
+                styles.monthButtonText
+              }>
+              ▶
+            </Text>
+
+          </TouchableOpacity>
+
+        </View>
 
         {/* TABLE HEADER */}
 
-        <View style={styles.tableHeader}>
+        <View
+          style={styles.tableHeader}>
 
-          <View style={styles.nameColumn}>
-            <Text style={styles.headerText}>
+          <View
+            style={styles.nameColumn}>
+            <Text
+              style={styles.headerText}>
               Customer
             </Text>
           </View>
 
-          <View style={styles.smallColumn}>
-            <Text style={styles.headerText}>
+          <View
+            style={styles.smallColumn}>
+            <Text
+              style={styles.headerText}>
               Morning
             </Text>
           </View>
 
-          <View style={styles.smallColumn}>
-            <Text style={styles.headerText}>
+          <View
+            style={styles.smallColumn}>
+            <Text
+              style={styles.headerText}>
               Evening
             </Text>
           </View>
 
-          <View style={styles.smallColumn}>
-            <Text style={styles.headerText}>
+          <View
+            style={styles.smallColumn}>
+            <Text
+              style={styles.headerText}>
               Total
             </Text>
           </View>
 
         </View>
 
-        {/* CUSTOMER ROWS */}
+        {/* CUSTOMER TOTALS */}
 
         {customers.map(customer => {
           const morning =
@@ -306,40 +423,66 @@ const updatePayment = async (
               key={customer.id}
               style={styles.customerRow}>
 
-              <View style={styles.nameColumn}>
+              <View
+                style={styles.nameColumn}>
+
                 <Text
-                  style={styles.customerName}
+                  style={
+                    styles.customerName
+                  }
                   numberOfLines={1}>
+
                   #{customer.collectionOrder}{' '}
                   {customer.name}
+
                 </Text>
+
               </View>
 
-              <View style={styles.smallColumn}>
-                <Text style={styles.quantityText}>
+              <View
+                style={styles.smallColumn}>
+
+                <Text
+                  style={
+                    styles.quantityText
+                  }>
                   {morning.toFixed(2)}
                 </Text>
+
               </View>
 
-              <View style={styles.smallColumn}>
-                <Text style={styles.quantityText}>
+              <View
+                style={styles.smallColumn}>
+
+                <Text
+                  style={
+                    styles.quantityText
+                  }>
                   {evening.toFixed(2)}
                 </Text>
+
               </View>
 
-              <View style={styles.smallColumn}>
-                <Text style={styles.totalQuantity}>
+              <View
+                style={styles.smallColumn}>
+
+                <Text
+                  style={
+                    styles.totalQuantity
+                  }>
                   {total.toFixed(2)}
                 </Text>
+
               </View>
 
             </View>
           );
         })}
 
-        {/* BILLING DETAILS */}
+        {/* PAYMENT DETAILS */}
 
-        <Text style={styles.sectionTitle}>
+        <Text
+          style={styles.sectionTitle}>
           Payment Details
         </Text>
 
@@ -350,9 +493,7 @@ const updatePayment = async (
             );
 
           const bill =
-            getTotalAmount(
-              customer.id!,
-            );
+            getBillAmount(customer);
 
           const paid =
             getPaidAmount(
@@ -361,29 +502,39 @@ const updatePayment = async (
 
           const remaining =
             getRemainingAmount(
-              customer.id!,
+              customer,
             );
 
           const isPaid =
             bill > 0 &&
-            remaining === 0;
+            remaining <= 0;
 
           return (
             <View
               key={`payment-${customer.id}`}
               style={styles.billingCard}>
 
-              <View style={styles.billingHeader}>
+              <View
+                style={styles.billingHeader}>
 
-                <View style={styles.billingCustomer}>
-                  <Text style={styles.billingName}>
+                <View
+                  style={
+                    styles.billingCustomer
+                  }>
+
+                  <Text
+                    style={
+                      styles.billingName
+                    }>
                     #{customer.collectionOrder}{' '}
                     {customer.name}
                   </Text>
 
-                  <Text style={styles.rateText}>
+                  <Text
+                    style={styles.rateText}>
                     ₹{customer.rate}/L
                   </Text>
+
                 </View>
 
                 <Text
@@ -393,54 +544,77 @@ const updatePayment = async (
                       ? styles.paid
                       : styles.pending,
                   ]}>
+
                   {isPaid
                     ? 'PAID'
                     : 'PENDING'}
+
                 </Text>
 
               </View>
 
-              <View style={styles.amountRow}>
+              <View
+                style={styles.amountRow}>
 
                 <View>
-                  <Text style={styles.label}>
+                  <Text
+                    style={styles.label}>
                     Milk
                   </Text>
 
-                  <Text style={styles.value}>
+                  <Text
+                    style={styles.value}>
                     {total.toFixed(2)} L
                   </Text>
                 </View>
 
                 <View>
-                  <Text style={styles.label}>
+                  <Text
+                    style={styles.label}>
                     Bill
                   </Text>
 
-                  <Text style={styles.billValue}>
+                  <Text
+                    style={styles.billValue}>
                     ₹{bill.toFixed(2)}
                   </Text>
                 </View>
 
                 <View>
-                  <Text style={styles.label}>
+                  <Text
+                    style={styles.label}>
+                    Paid
+                  </Text>
+
+                  <Text
+                    style={styles.paidValue}>
+                    ₹{paid.toFixed(2)}
+                  </Text>
+                </View>
+
+                <View>
+                  <Text
+                    style={styles.label}>
                     Remaining
                   </Text>
 
-                  <Text style={styles.remainingValue}>
+                  <Text
+                    style={
+                      styles.remainingValue
+                    }>
                     ₹{remaining.toFixed(2)}
                   </Text>
                 </View>
 
               </View>
 
-              {/* CASH COLLECTOR */}
-
-              <Text style={styles.cashLabel}>
+              <Text
+                style={styles.cashLabel}>
                 Cash Collector / Paid
               </Text>
 
-              <View style={styles.paymentRow}>
+              <View
+                style={styles.paymentRow}>
 
                 <TextInput
                   style={styles.cashInput}
@@ -453,18 +627,23 @@ const updatePayment = async (
                     ] || ''
                   }
                   onChangeText={text =>
-                    setCashInputs(prev => ({
-                      ...prev,
-                      [customer.id!]: text,
-                    }))
+                    setCashInputs(
+                      prev => ({
+                        ...prev,
+                        [customer.id!]:
+                          text,
+                      }),
+                    )
                   }
                 />
 
                 <TouchableOpacity
-                  style={styles.updateButton}
+                  style={
+                    styles.updateButton
+                  }
                   onPress={() =>
                     updatePayment(
-                      customer.id!,
+                      customer,
                     )
                   }>
 
@@ -482,14 +661,6 @@ const updatePayment = async (
             </View>
           );
         })}
-
-        {customers.length === 0 && (
-          <View style={styles.emptyCard}>
-            <Text style={styles.emptyText}>
-              No customers found.
-            </Text>
-          </View>
-        )}
 
       </ScrollView>
 
@@ -512,7 +683,39 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '700',
     color: '#1976D2',
-    marginBottom: 14,
+    marginBottom: 12,
+  },
+
+  monthSelector: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 15,
+    elevation: 2,
+  },
+
+  monthButton: {
+    backgroundColor: '#1976D2',
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  monthButtonText: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: '700',
+  },
+
+  monthText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#222',
   },
 
   tableHeader: {
@@ -632,25 +835,31 @@ const styles = StyleSheet.create({
   },
 
   label: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#777',
     marginBottom: 4,
   },
 
   value: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
     color: '#333',
   },
 
   billValue: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
     color: '#1976D2',
   },
 
+  paidValue: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#2E7D32',
+  },
+
   remainingValue: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
     color: '#C62828',
   },
@@ -692,18 +901,5 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '700',
-  },
-
-  emptyCard: {
-    backgroundColor: '#FFFFFF',
-    padding: 20,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginTop: 10,
-  },
-
-  emptyText: {
-    color: '#777',
-    fontSize: 15,
   },
 });

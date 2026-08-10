@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ScrollView,
   StyleSheet,
@@ -10,42 +10,105 @@ import {
   subscribeToCustomers,
 } from '../../services/customer/customerService';
 
+import {
+  subscribeToBillPayments,
+} from '../../services/billing/billingService';
+
 import AppHeader from '../../components/common/AppHeader';
 import SummaryCard from '../../components/dashboard/SummaryCard';
 
 import {
   subscribeToCollectionsByDate,
+  subscribeToCollectionsByMonth,
 } from '../../services/collection/collectionService';
 
-import {MilkCollection} from '../../types/collection';
+
+import { MilkCollection } from '../../types/collection';
+import { Customer } from '../../types/customer';
 
 export default function DashboardScreen() {
   const [customerCount, setCustomerCount] = useState(0);
 
+  const [customers, setCustomers] =
+  useState<Customer[]>([]);
+
   const [totalMilk, setTotalMilk] = useState(0);
 
   const [revenue, setRevenue] = useState(0);
+  const [pendingBills, setPendingBills] = useState(0);
+
+  const [monthlyCollections, setMonthlyCollections] =
+    useState<MilkCollection[]>([]);
+
+  const [monthlyBills, setMonthlyBills] =
+    useState<any[]>([]);
+
 
   const [morningCount, setMorningCount] =
     useState(0);
+
 
   const [eveningCount, setEveningCount] =
     useState(0);
 
   const [todayCollections, setTodayCollections] =
     useState<MilkCollection[]>([]);
+  useEffect(() => {
+    const today = new Date();
 
+    const year = today.getFullYear();
+    const month = today.getMonth();
+
+    const monthStart =
+      `${year}-${String(month + 1).padStart(2, '0')}-01`;
+
+    const lastDay =
+      new Date(
+        year,
+        month + 1,
+        0,
+      ).getDate();
+
+    const monthEnd =
+      `${year}-${String(month + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+
+    const monthString =
+      `${year}-${String(month + 1).padStart(2, '0')}`;
+
+    const unsubscribeCollections =
+      subscribeToCollectionsByMonth(
+        monthStart,
+        monthEnd,
+        collections => {
+          setMonthlyCollections(collections);
+        },
+      );
+
+    const unsubscribeBills =
+      subscribeToBillPayments(
+        monthString,
+        bills => {
+          setMonthlyBills(bills);
+        },
+      );
+
+    return () => {
+      unsubscribeCollections();
+      unsubscribeBills();
+    };
+  }, []);
   /*
    * CUSTOMERS - REAL TIME
    */
-  useEffect(() => {
-    const unsubscribe =
-      subscribeToCustomers(customers => {
-        setCustomerCount(customers.length);
-      });
+ useEffect(() => {
+  const unsubscribe =
+    subscribeToCustomers(customers => {
+      setCustomers(customers);
+      setCustomerCount(customers.length);
+    });
 
-    return unsubscribe;
-  }, []);
+  return unsubscribe;
+}, []);
 
   /*
    * TODAY'S COLLECTIONS - REAL TIME
@@ -118,6 +181,51 @@ export default function DashboardScreen() {
     };
   }, []);
 
+const calculatedPendingBills =
+  customers.filter(customer => {
+    // Get this customer's collections
+    const customerCollections =
+      monthlyCollections.filter(
+        item =>
+          item.customerId === customer.id,
+      );
+
+    // No collection = no bill
+    if (customerCollections.length === 0) {
+      return false;
+    }
+
+    // Calculate monthly milk
+    const totalMilk =
+      customerCollections.reduce(
+        (total, item) =>
+          total +
+          Number(item.quantity || 0),
+        0,
+      );
+
+    // Calculate monthly bill
+    const bill =
+      totalMilk *
+      Number(customer.rate || 0);
+
+    // Find saved payment
+    const savedBill =
+      monthlyBills.find(
+        item =>
+          item.customerId === customer.id,
+      );
+
+    // If no payment exists, paid = 0
+    const paid =
+      Number(
+        savedBill?.paidAmount || 0,
+      );
+
+    // Bill exists and isn't fully paid
+    return bill > 0 && paid < bill;
+  }).length;
+
   const remainingMorning =
     Math.max(
       customerCount - morningCount,
@@ -168,8 +276,7 @@ export default function DashboardScreen() {
 
           <SummaryCard
             title="Pending Bills"
-            value="0"
-          />
+            value={calculatedPendingBills} />
 
         </View>
 
