@@ -77,7 +77,7 @@ export default function CustomerScreen() {
           onPress: async () => {
             try {
               if (customer.id) {
-                await deleteCustomerAndReorder(customer); 
+                await deleteCustomerAndReorder(customer);
                 loadCustomers();
               }
             } catch (error) {
@@ -114,15 +114,29 @@ export default function CustomerScreen() {
         renderItem={({ item }) => (
           <CustomerCard
             customer={item}
-            onCollect={() => {
-              console.log('Collect milk for', item.name);
-            }}
-            onEdit={() =>
-              navigation.navigate('AddCustomer', {
-                customer: item,
-              })
+
+            
+            onStatement={() =>
+              navigation.navigate(
+                'CustomerStatement',
+                {
+                  customer: item,
+                },
+              )
             }
-            onDelete={() => handleDelete(item)}
+
+            onEdit={() =>
+              navigation.navigate(
+                'AddCustomer',
+                {
+                  customer: item,
+                },
+              )
+            }
+
+            onDelete={() =>
+              handleDelete(item)
+            }
           />
         )}
       />
@@ -132,6 +146,20 @@ export default function CustomerScreen() {
 
 
 const styles = StyleSheet.create({
+  statementButton: {
+    backgroundColor: '#E3F2FD',
+    paddingVertical: 10,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginTop: -5,
+    marginBottom: 12,
+  },
+
+  statementButtonText: {
+    color: '#1976D2',
+    fontSize: 14,
+    fontWeight: '700',
+  },
   container: {
     flex: 1,
     backgroundColor: '#F5F7FA',

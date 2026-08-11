@@ -5,28 +5,31 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
-import { Customer } from '../../types/customer';
+import {Customer} from '../../types/customer';
 
 type Props = {
   customer: Customer;
-  onCollect?: () => void;
   onEdit?: () => void;
   onDelete?: () => void;
+  onStatement?: () => void;
 };
 
 export default function CustomerCard({
   customer,
-  onCollect,
   onEdit,
   onDelete,
+  onStatement,
 }: Props) {
   return (
     <View style={styles.card}>
+
       <Text style={styles.name}>
         {customer.collectionOrder}. {customer.name}
       </Text>
+
       <Text style={styles.info}>
         📞 {customer.mobile}
       </Text>
@@ -42,45 +45,63 @@ export default function CustomerCard({
       <View style={styles.actions}>
 
         <TouchableOpacity
-          onPress={onCollect}
-          style={styles.collectButton}>
+          onPress={onStatement}
+          style={styles.statementButton}>
+
           <Icon
-            name="cup-water"
+            name="file-chart-outline"
             size={20}
-            color="#fff"
-          />
-
-          <Text style={styles.collectText}>
-            Collect
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity onPress={onEdit}>
-          <Icon
-            name="pencil"
-            size={22}
             color="#1976D2"
           />
+
+          <Text style={styles.statementText}>
+            Statement
+          </Text>
+
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={onEdit}
+          style={styles.editButton}>
+
+          <Icon
+            name="pencil-outline"
+            size={20}
+            color="#1976D2"
+          />
+
+          <Text style={styles.editText}>
+            Edit
+          </Text>
+
         </TouchableOpacity>
 
         <TouchableOpacity
           onPress={onDelete}
-          style={{ marginLeft: 20 }}>
+          style={styles.deleteButton}>
+
           <Icon
-            name="delete"
-            size={22}
+            name="delete-outline"
+            size={20}
             color="#D32F2F"
           />
+
+          <Text style={styles.deleteText}>
+            Delete
+          </Text>
+
         </TouchableOpacity>
+
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+
   card: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
     padding: 15,
     marginBottom: 12,
     elevation: 3,
@@ -89,33 +110,73 @@ const styles = StyleSheet.create({
   name: {
     fontSize: 18,
     fontWeight: '700',
+    color: '#222',
     marginBottom: 10,
   },
 
   info: {
     fontSize: 15,
+    color: '#555',
     marginBottom: 5,
   },
 
   actions: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
-    marginTop: 12,
+    alignItems: 'center',
+    marginTop: 14,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#EEEEEE',
   },
 
-  collectButton: {
+  statementButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#2E7D32',
+    backgroundColor: '#E3F2FD',
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    marginRight: 12,
+    paddingVertical: 9,
+    borderRadius: 9,
+    marginRight: 8,
   },
 
-  collectText: {
-    color: '#fff',
-    marginLeft: 6,
-    fontWeight: '600',
+  statementText: {
+    color: '#1976D2',
+    marginLeft: 5,
+    fontSize: 13,
+    fontWeight: '700',
   },
+
+  editButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F5F9FF',
+    paddingHorizontal: 11,
+    paddingVertical: 9,
+    borderRadius: 9,
+    marginRight: 8,
+  },
+
+  editText: {
+    color: '#1976D2',
+    marginLeft: 5,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+
+  deleteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF5F5',
+    paddingHorizontal: 11,
+    paddingVertical: 9,
+    borderRadius: 9,
+  },
+
+  deleteText: {
+    color: '#D32F2F',
+    marginLeft: 5,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+
 });

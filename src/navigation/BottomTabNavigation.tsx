@@ -62,6 +62,7 @@ export default function BottomTabNavigator() {
             <Tab.Screen name="Collection" component={CollectionScreen} />
             
             <Tab.Screen name="Billing" component={BillingScreen} />
+            
             <Tab.Screen name="Settings" component={SettingsScreen} />
         </Tab.Navigator>
     );
