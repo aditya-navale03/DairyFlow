@@ -92,12 +92,21 @@ export default function CustomerScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <Text style={styles.title}>Customers</Text>
-      <TextInput
-        placeholder="Search customer..."
-        style={styles.search}
-        value={search}
-        onChangeText={setSearch}
-      />
+      <View style={styles.searchContainer}>
+
+        <Text style={styles.searchLabel}>
+          Search Customer
+        </Text>
+
+        <TextInput
+          style={styles.search}
+          value={search}
+          onChangeText={setSearch}
+          placeholder="Search by name or mobile"
+          placeholderTextColor="#888"
+        />
+
+      </View>
 
       <TouchableOpacity
         style={styles.addButton}
@@ -115,7 +124,7 @@ export default function CustomerScreen() {
           <CustomerCard
             customer={item}
 
-            
+
             onStatement={() =>
               navigation.navigate(
                 'CustomerStatement',
@@ -164,6 +173,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F5F7FA',
     padding: 16,
+    paddingTop: 35,
   },
 
   title: {
@@ -172,16 +182,34 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     color: '#1976D2',
   },
+searchContainer: {
+  position: 'relative',
+  marginTop: 5,
+  marginBottom: 20,
+},
 
-  search: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    paddingHorizontal: 15,
-    paddingVertical: 14,
-    marginBottom: 15,
-    borderWidth: 1,
-    borderColor: '#ddd',
-  },
+searchLabel: {
+  position: 'absolute',
+  top: -10,
+  left: 14,
+  backgroundColor: '#F5F7FA',
+  paddingHorizontal: 6,
+  zIndex: 1,
+  fontSize: 13,
+  color: '#1976D2',
+  fontWeight: '600',
+},
+
+search: {
+  backgroundColor: '#fff',
+  borderRadius: 12,
+  paddingHorizontal: 15,
+  paddingVertical: 14,
+  borderWidth: 1,
+  borderColor: '#1976D2',
+  fontSize: 16,
+  color: '#000',
+},
 
   addButton: {
     backgroundColor: '#1976D2',

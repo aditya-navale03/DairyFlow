@@ -1,20 +1,21 @@
-import {moveCustomer} from '../../services/customer/customerOrderService';
+import React, {useState} from 'react';
+import {
+  Alert,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 
-import LoadingOverlay from '../../components/common/LoadingOverlay';
 
-import {insertCustomerAtPosition} from '../../services/customer/customerOrderService';
 
-import {useRoute} from '@react-navigation/native';
+import {useNavigation, useRoute} from '@react-navigation/native';
+import {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {RouteProp} from '@react-navigation/native';
 
-type RouteProps = RouteProp<
-  CustomerStackParamList,
-  'AddCustomer'
->;
-
-
 import CustomerForm from '../../components/customer/CustomerForm';
-
+import LoadingOverlay from '../../components/common/LoadingOverlay';
 
 import {
   addCustomer,
@@ -22,171 +23,216 @@ import {
   getCustomerByCollectionOrder,
 } from '../../services/customer/customerService';
 
-import {useNavigation} from '@react-navigation/native';
-import {NativeStackNavigationProp} from '@react-navigation/native-stack';
+import {
+  moveCustomer,
+  insertCustomerAtPosition,
+} from '../../services/customer/customerOrderService';
+
 import {CustomerStackParamList} from '../../navigation/CustomerNavigator';
+
 type NavigationProp = NativeStackNavigationProp<
   CustomerStackParamList,
   'AddCustomer'
 >;
 
-import {
-  Alert,
-  SafeAreaView,
-  StyleSheet,
-  Text,
-} from 'react-native';
-
-import React, {useState} from 'react';
+type RouteProps = RouteProp<
+  CustomerStackParamList,
+  'AddCustomer'
+>;
 
 export default function AddCustomerScreen() {
-
   const route = useRoute<RouteProps>();
+  const navigation = useNavigation<NavigationProp>();
 
-const customer = route.params?.customer;
-const [name, setName] = useState(customer?.name ?? '');
-const [mobile, setMobile] = useState(customer?.mobile ?? '');
-const [village, setVillage] = useState(customer?.village ?? '');
-const [rate, setRate] = useState(customer?.rate?.toString() ?? '');
-const [collectionOrder, setCollectionOrder] = useState(
-  customer?.collectionOrder?.toString() ?? '',
-);
+  const customer = route.params?.customer;
 
-const [loading, setLoading] = useState(false);
+  const [name, setName] = useState(customer?.name ?? '');
+  const [mobile, setMobile] = useState(customer?.mobile ?? '');
+  const [rate, setRate] = useState(
+    customer?.rate?.toString() ?? '',
+  );
 
-const navigation = useNavigation<NavigationProp>();
+  const [collectionOrder, setCollectionOrder] = useState(
+    customer?.collectionOrder?.toString() ?? '',
+  );
+
+  const [loading, setLoading] = useState(false);
 
   const onSave = async () => {
     setLoading(true);
-  if (!name || !mobile || !village || !rate) {
-    setLoading(false);
-    Alert.alert('Validation', 'Please fill all fields');
-    return;
-  }
 
-const existingCustomer = await getCustomerByCollectionOrder(
-  Number(collectionOrder),
-);
-
-if (!customer && existingCustomer) {
-  Alert.alert(
-    'Collection Number Exists',
-    `${existingCustomer.name} already has collection number ${collectionOrder}.`,
-    [
-      {
-        text: 'Insert Here',
-        onPress: async () => {
-          try {
-            await insertCustomerAtPosition({
-              name,
-              mobile,
-              village,
-              rate: Number(rate),
-              collectionOrder: Number(collectionOrder),
-              isActive: true,
-              createdAt: new Date(),
-            });
-
-            setLoading(false);
-            Alert.alert('Success', 'Customer added successfully');
-            navigation.goBack();
-          } catch (error) {
-            setLoading(false);
-            Alert.alert('Error', 'Failed to insert customer');
-          }
-        },
-      },
-      {
-        text: 'Change Number',
-        onPress: () => setLoading(false),
-      },
-      {
-        text: 'Cancel',
-        style: 'cancel',
-        onPress: () => setLoading(false),
-      },
-    ],
-  );
-
-  return;
-}
-
-try {
-  if (customer?.id) {
-    await updateCustomer(customer.id, {
-  name,
-  mobile,
-  village,
-  rate: Number(rate),
-});
-
-await moveCustomer(
-  {
-    ...customer,
-    name,
-    mobile,
-    village,
-    rate: Number(rate),
-  },
-  Number(collectionOrder),
-);
-
-    Alert.alert('Success', 'Customer updated successfully');
-  } else {
-  await addCustomer({
-    name,
-    mobile,
-    village,
-    rate: Number(rate),
-    collectionOrder: Number(collectionOrder),
-    isActive: true,
-    createdAt: new Date(),
-  });
-
-  Alert.alert('Success', 'Customer added successfully');
-}
-  setLoading(false);
-  navigation.goBack();
-} catch (error) {
-  setLoading(false);
-  console.log(error);
-  Alert.alert('Error', 'Operation failed');
-}
-};
-
- return (
-  <SafeAreaView style={styles.container}>
-<Text style={styles.title}>
-  {customer ? 'Edit Customer' : 'Add Customer'}
-</Text>
-    <CustomerForm
-      name={name}
-      mobile={mobile}
-      village={village}
-      rate={rate}
-
-      collectionOrder={collectionOrder}
-setCollectionOrder={setCollectionOrder}
-
-      setName={setName}
-      setMobile={setMobile}
-      setVillage={setVillage}
-      setRate={setRate}
-buttonTitle={
-  customer ? 'UPDATE CUSTOMER' : 'SAVE CUSTOMER'
-}
-      onSubmit={onSave}
-    />
-    <LoadingOverlay visible={loading}
-    text={
-      customer
-        ? 'Updating customer...'
-        : 'Saving customer...'
+    if (!name || !mobile || !rate || !collectionOrder) {
+      setLoading(false);
+      Alert.alert('Validation', 'Please fill all fields');
+      return;
     }
-    />
 
-  </SafeAreaView>
-);
+    try {
+      const existingCustomer =
+        await getCustomerByCollectionOrder(
+          Number(collectionOrder),
+        );
+
+      if (!customer && existingCustomer) {
+        setLoading(false);
+
+        Alert.alert(
+          'Collection Number Exists',
+          `${existingCustomer.name} already has collection number ${collectionOrder}.`,
+          [
+            {
+              text: 'Insert Here',
+              onPress: async () => {
+                try {
+                  setLoading(true);
+
+                  await insertCustomerAtPosition({
+                    name,
+                    mobile,
+                    rate: Number(rate),
+                    collectionOrder: Number(collectionOrder),
+                    isActive: true,
+                    createdAt: new Date(),
+                  });
+
+                  setLoading(false);
+
+                  Alert.alert(
+                    'Success',
+                    'Customer added successfully',
+                  );
+
+                  navigation.goBack();
+                } catch (error) {
+                  setLoading(false);
+
+                  Alert.alert(
+                    'Error',
+                    'Failed to insert customer',
+                  );
+                }
+              },
+            },
+            {
+              text: 'Change Number',
+            },
+            {
+              text: 'Cancel',
+              style: 'cancel',
+            },
+          ],
+        );
+
+        return;
+      }
+
+      if (customer?.id) {
+        await updateCustomer(customer.id, {
+          name,
+          mobile,
+          rate: Number(rate),
+        });
+
+        await moveCustomer(
+          {
+            ...customer,
+            name,
+            mobile,
+            rate: Number(rate),
+          },
+          Number(collectionOrder),
+        );
+
+        Alert.alert(
+          'Success',
+          'Customer updated successfully',
+        );
+      } else {
+        await addCustomer({
+          name,
+          mobile,
+          rate: Number(rate),
+          collectionOrder: Number(collectionOrder),
+          isActive: true,
+          createdAt: new Date(),
+        });
+
+        Alert.alert(
+          'Success',
+          'Customer added successfully',
+        );
+      }
+
+      setLoading(false);
+      navigation.goBack();
+
+    } catch (error) {
+      setLoading(false);
+
+      console.log(error);
+
+      Alert.alert(
+        'Error',
+        'Operation failed',
+      );
+    }
+  };
+
+  return (
+    <SafeAreaView style={styles.container}>
+
+      <View style={styles.header}>
+
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}>
+
+          <Text style={styles.backText}>
+            ← Back
+          </Text>
+
+        </TouchableOpacity>
+
+        <Text style={styles.title}>
+          {customer
+            ? 'Edit Customer'
+            : 'Add Customer'}
+        </Text>
+
+      </View>
+
+      <View style={styles.formContainer}>
+
+        <CustomerForm
+          name={name}
+          mobile={mobile}
+          rate={rate}
+          collectionOrder={collectionOrder}
+          setName={setName}
+          setMobile={setMobile}
+          setRate={setRate}
+          setCollectionOrder={setCollectionOrder}
+          buttonTitle={
+            customer
+              ? 'UPDATE CUSTOMER'
+              : 'SAVE CUSTOMER'
+          }
+          onSubmit={onSave}
+        />
+
+      </View>
+
+      <LoadingOverlay
+        visible={loading}
+        text={
+          customer
+            ? 'Updating customer...'
+            : 'Saving customer...'
+        }
+      />
+
+    </SafeAreaView>
+  );
 }
 
 const styles = StyleSheet.create({
@@ -196,10 +242,32 @@ const styles = StyleSheet.create({
     padding: 20,
   },
 
+  header: {
+    marginTop: 10,
+  },
+
+  backButton: {
+    alignSelf: 'flex-start',
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+    marginBottom: 12,
+    backgroundColor: '#E3F2FD',
+    borderRadius: 10,
+  },
+
+  backText: {
+    color: '#1976D2',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+
   title: {
     fontSize: 28,
     fontWeight: '700',
     color: '#1976D2',
-    marginBottom: 25,
+  },
+
+  formContainer: {
+    marginTop: 1,
   },
 });

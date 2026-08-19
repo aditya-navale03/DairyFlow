@@ -1,17 +1,21 @@
 import React from 'react';
-import {StyleSheet, Text, TouchableOpacity, View} from 'react-native';
+import {
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+
 import AppTextInput from '../common/AppTextInput';
 
 type Props = {
   name: string;
   mobile: string;
-  village: string;
   rate: string;
   collectionOrder: string;
 
   setName: (value: string) => void;
   setMobile: (value: string) => void;
-  setVillage: (value: string) => void;
   setRate: (value: string) => void;
   setCollectionOrder: (value: string) => void;
 
@@ -22,12 +26,10 @@ type Props = {
 export default function CustomerForm({
   name,
   mobile,
-  village,
   rate,
   collectionOrder,
   setName,
   setMobile,
-  setVillage,
   setRate,
   setCollectionOrder,
   buttonTitle,
@@ -49,12 +51,6 @@ export default function CustomerForm({
       />
 
       <AppTextInput
-        placeholder="Village"
-        value={village}
-        onChangeText={setVillage}
-      />
-
-      <AppTextInput
         placeholder="Rate per Litre"
         value={rate}
         keyboardType="numeric"
@@ -62,11 +58,11 @@ export default function CustomerForm({
       />
 
       <AppTextInput
-  placeholder="Collection Number"
-  keyboardType="numeric"
-  value={collectionOrder}
-  onChangeText={setCollectionOrder}
-/>
+        placeholder="Collection Number"
+        keyboardType="numeric"
+        value={collectionOrder}
+        onChangeText={setCollectionOrder}
+      />
 
       <TouchableOpacity
         style={styles.button}

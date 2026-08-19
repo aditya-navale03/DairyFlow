@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import {
+  Alert,
   ScrollView,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from 'react-native';
 
@@ -20,6 +22,7 @@ import SummaryCard from '../../components/dashboard/SummaryCard';
 import {
   subscribeToCollectionsByDate,
   subscribeToCollectionsByMonth,
+  deleteCollection,
 } from '../../services/collection/collectionService';
 
 
@@ -30,7 +33,7 @@ export default function DashboardScreen() {
   const [customerCount, setCustomerCount] = useState(0);
 
   const [customers, setCustomers] =
-  useState<Customer[]>([]);
+    useState<Customer[]>([]);
 
   const [totalMilk, setTotalMilk] = useState(0);
 
@@ -100,15 +103,15 @@ export default function DashboardScreen() {
   /*
    * CUSTOMERS - REAL TIME
    */
- useEffect(() => {
-  const unsubscribe =
-    subscribeToCustomers(customers => {
-      setCustomers(customers);
-      setCustomerCount(customers.length);
-    });
+  useEffect(() => {
+    const unsubscribe =
+      subscribeToCustomers(customers => {
+        setCustomers(customers);
+        setCustomerCount(customers.length);
+      });
 
-  return unsubscribe;
-}, []);
+    return unsubscribe;
+  }, []);
 
   /*
    * TODAY'S COLLECTIONS - REAL TIME
@@ -181,50 +184,50 @@ export default function DashboardScreen() {
     };
   }, []);
 
-const calculatedPendingBills =
-  customers.filter(customer => {
-    // Get this customer's collections
-    const customerCollections =
-      monthlyCollections.filter(
-        item =>
-          item.customerId === customer.id,
-      );
+  const calculatedPendingBills =
+    customers.filter(customer => {
+      // Get this customer's collections
+      const customerCollections =
+        monthlyCollections.filter(
+          item =>
+            item.customerId === customer.id,
+        );
 
-    // No collection = no bill
-    if (customerCollections.length === 0) {
-      return false;
-    }
+      // No collection = no bill
+      if (customerCollections.length === 0) {
+        return false;
+      }
 
-    // Calculate monthly milk
-    const totalMilk =
-      customerCollections.reduce(
-        (total, item) =>
-          total +
-          Number(item.quantity || 0),
-        0,
-      );
+      // Calculate monthly milk
+      const totalMilk =
+        customerCollections.reduce(
+          (total, item) =>
+            total +
+            Number(item.quantity || 0),
+          0,
+        );
 
-    // Calculate monthly bill
-    const bill =
-      totalMilk *
-      Number(customer.rate || 0);
+      // Calculate monthly bill
+      const bill =
+        totalMilk *
+        Number(customer.rate || 0);
 
-    // Find saved payment
-    const savedBill =
-      monthlyBills.find(
-        item =>
-          item.customerId === customer.id,
-      );
+      // Find saved payment
+      const savedBill =
+        monthlyBills.find(
+          item =>
+            item.customerId === customer.id,
+        );
 
-    // If no payment exists, paid = 0
-    const paid =
-      Number(
-        savedBill?.paidAmount || 0,
-      );
+      // If no payment exists, paid = 0
+      const paid =
+        Number(
+          savedBill?.paidAmount || 0,
+        );
 
-    // Bill exists and isn't fully paid
-    return bill > 0 && paid < bill;
-  }).length;
+      // Bill exists and isn't fully paid
+      return bill > 0 && paid < bill;
+    }).length;
 
   const remainingMorning =
     Math.max(
@@ -237,6 +240,45 @@ const calculatedPendingBills =
       customerCount - eveningCount,
       0,
     );
+  const handleDeleteCollection = (
+    item: MilkCollection,
+  ) => {
+    const collectionId = item.id;
+
+    if (!collectionId) {
+      return;
+    }
+
+    Alert.alert(
+      'Delete Collection',
+      `Are you sure you want to delete ${item.customerName}'s ${item.session} collection of ${Number(
+        item.quantity,
+      ).toFixed(2)} L?`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteCollection(collectionId);
+
+            } catch (error) {
+              console.log(error);
+
+              Alert.alert(
+                'Error',
+                'Failed to delete collection',
+              );
+            }
+          },
+        },
+      ],
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -377,33 +419,32 @@ const calculatedPendingBills =
                   </Text>
 
                 </View>
+                <View style={styles.collectionRight}>
 
-                <View
-                  style={
-                    styles.collectionRight
-                  }>
+                  <View style={styles.collectionValues}>
 
-                  <Text
-                    style={
-                      styles.collectionQuantity
-                    }>
-                    {Number(
-                      item.quantity,
-                    ).toFixed(2)} L
-                  </Text>
+                    <View style={styles.amountContainer}>
+                      <Text style={styles.collectionQuantity}>
+                        {Number(item.quantity).toFixed(2)} L
+                      </Text>
 
-                  <Text
-                    style={
-                      styles.collectionAmount
-                    }>
-                    ₹
-                    {Number(
-                      item.amount,
-                    ).toFixed(2)}
-                  </Text>
+                      <Text style={styles.collectionAmount}>
+                        ₹{Number(item.amount).toFixed(2)}
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      style={styles.deleteButton}
+                      onPress={() => handleDeleteCollection(item)}>
+
+                      <Text style={styles.deleteButtonText}>
+                        Remove  
+                      </Text>
+
+                    </TouchableOpacity>
+
+                  </View>
 
                 </View>
-
               </View>
 
             ),
@@ -418,6 +459,15 @@ const calculatedPendingBills =
 }
 
 const styles = StyleSheet.create({
+  collectionValues: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+
+  amountContainer: {
+    alignItems: 'flex-end',
+  },
+
   container: {
     flex: 1,
     backgroundColor: '#F5F7FA',
@@ -507,6 +557,7 @@ const styles = StyleSheet.create({
 
   collectionRight: {
     alignItems: 'flex-end',
+    marginRight: 15,
   },
 
   collectionQuantity: {
@@ -533,4 +584,20 @@ const styles = StyleSheet.create({
     color: '#777',
     fontSize: 15,
   },
+
+  deleteButton: {
+  marginLeft: 20,
+  backgroundColor: '#D32F2F',
+  paddingHorizontal: 12,
+  paddingVertical: 9,
+  borderRadius: 8,
+  alignItems: 'center',
+  justifyContent: 'center',
+},
+
+deleteButtonText: {
+  color: '#FFFFFF',
+  fontSize: 13,
+  fontWeight: '700',
+},
 });

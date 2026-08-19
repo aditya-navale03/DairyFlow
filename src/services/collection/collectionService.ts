@@ -6,6 +6,8 @@ import {
   query,
   where,
   onSnapshot,
+  deleteDoc,
+  doc,  
 } from '@react-native-firebase/firestore';
 
 import {MilkCollection} from '../../types/collection';
@@ -109,4 +111,12 @@ export const subscribeToCollectionsByMonth = (
 
     callback(collections);
   });
+};
+
+export const deleteCollection = async (
+  collectionId: string,
+) => {
+  await deleteDoc(
+    doc(db, 'collections', collectionId),
+  );
 };
