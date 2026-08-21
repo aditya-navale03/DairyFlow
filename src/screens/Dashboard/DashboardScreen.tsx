@@ -240,50 +240,81 @@ export default function DashboardScreen() {
       customerCount - eveningCount,
       0,
     );
-  const handleDeleteCollection = (
-    item: MilkCollection,
-  ) => {
-    const collectionId = item.id;
 
-    if (!collectionId) {
-      return;
-    }
+const handleDeleteCollection = (
+  item: MilkCollection,
+) => {
+  const collectionId = item.id;
+  const date = item.dateString;
 
-    Alert.alert(
-      'Delete Collection',
-      `Are you sure you want to delete ${item.customerName}'s ${item.session} collection of ${Number(
-        item.quantity,
-      ).toFixed(2)} L?`,
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
+  if (!collectionId || !date) {
+    return;
+  }
+
+  Alert.alert(
+    'Delete Collection',
+    `Are you sure you want to delete ${item.customerName}'s ${item.session} collection of ${Number(
+      item.quantity,
+    ).toFixed(2)} L?`,
+    [
+      {
+        text: 'Cancel',
+        style: 'cancel',
+      },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await deleteCollection(
+              date,
+              collectionId,
+            );
+
+          } catch (error) {
+            console.log(error);
+
+            Alert.alert(
+              'Error',
+              'Failed to delete collection',
+            );
+          }
         },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteCollection(collectionId);
+      },
+    ],
+  );
+};
 
-            } catch (error) {
-              console.log(error);
-
-              Alert.alert(
-                'Error',
-                'Failed to delete collection',
-              );
-            }
-          },
-        },
-      ],
-    );
-  };
+const todayDate = new Date().toLocaleDateString(
+  'en-IN',
+  {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  },
+);
 
   return (
     <View style={styles.container}>
 
       <AppHeader title="Dashboard" />
+
+      <View style={styles.dateHeader}>
+
+  <Text style={styles.todayLabel}>
+    TODAY
+  </Text>
+
+  <Text style={styles.todayDate}>
+    {todayDate}
+  </Text>
+
+  <Text style={styles.todaySubtitle}>
+    Milk collection overview
+  </Text>
+
+</View>
 
       <ScrollView
         contentContainerStyle={styles.content}
@@ -599,5 +630,35 @@ deleteButtonText: {
   color: '#FFFFFF',
   fontSize: 13,
   fontWeight: '700',
+},
+
+// style sheet for date header
+dateHeader: {
+  backgroundColor: '#FFFFFF',
+  marginHorizontal: 16,
+  marginTop: 16,
+  padding: 18,
+  borderRadius: 14,
+  elevation: 2,
+},
+
+todayLabel: {
+  fontSize: 12,
+  fontWeight: '700',
+  color: '#1976D2',
+  letterSpacing: 1,
+},
+
+todayDate: {
+  fontSize: 21,
+  fontWeight: '700',
+  color: '#222',
+  marginTop: 5,
+},
+
+todaySubtitle: {
+  fontSize: 14,
+  color: '#777',
+  marginTop: 5,
 },
 });

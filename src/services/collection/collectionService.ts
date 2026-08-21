@@ -7,75 +7,140 @@ import {
   where,
   onSnapshot,
   deleteDoc,
-  doc,  
+  doc,
+  collectionGroup,
 } from '@react-native-firebase/firestore';
 
-import {MilkCollection} from '../../types/collection';
+import { MilkCollection } from '../../types/collection';
 
 const db = getFirestore();
-import {Alert} from 'react-native';
 
+
+/*
+ * COLLECTION STRUCTURE:
+ *
+ * collections
+ *   └── 2026-08-21
+ *         └── entries
+ *               ├── collection1
+ *               ├── collection2
+ *               └── collection3
+ */
+
+
+/*
+ * ADD MILK COLLECTION
+ */
 export const addMilkCollection = async (
   data: MilkCollection,
 ) => {
+  const date = data.dateString;
+
   const ref = await addDoc(
-    collection(db, 'collections'),
-    data,
+    collection(
+      db,
+      'collections',
+      date,
+      'entries',
+    ),
+    {
+      ...data,
+      dateString: date,
+    },
   );
 
-  console.log('Saved:', ref.id);
+  console.log(
+    'Saved collection:',
+    ref.id,
+    'Date:',
+    date,
+  );
 };
 
+/*
+ * GET COLLECTIONS BY DATE + SESSION
+ */
 export const getCollectionsByDate = async (
   date: string,
   session: 'Morning' | 'Evening',
 ) => {
   const q = query(
-    collection(db, 'collections'),
-    where('dateString', '==', date),
+    collection(
+      db,
+      'collections',
+      date,
+      'entries',
+    ),
     where('session', '==', session),
   );
 
-  
-
   const snapshot = await getDocs(q);
 
-  return snapshot.docs.map(doc => ({
-    id: doc.id,
-    ...doc.data(),
+  return snapshot.docs.map(item => ({
+    id: item.id,
+    ...item.data(),
   })) as MilkCollection[];
 };
 
+
+/*
+ * REAL-TIME COLLECTIONS BY DATE + SESSION
+ */
 export const subscribeToCollectionsByDate = (
   date: string,
   session: 'Morning' | 'Evening',
   callback: (collections: MilkCollection[]) => void,
 ) => {
+
   const q = query(
-    collection(db, 'collections'),
-    where('dateString', '==', date),
+    collection(
+      db,
+      'collections',
+      date,
+      'entries',
+    ),
     where('session', '==', session),
   );
 
-  return onSnapshot(q, snapshot => {
-    const collections = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data(),
-    })) as MilkCollection[];
+  return onSnapshot(
+    q,
+    snapshot => {
 
-    callback(collections);
-  });
+      const collections =
+        snapshot.docs.map(item => ({
+          id: item.id,
+          ...item.data(),
+        })) as MilkCollection[];
+
+      callback(collections);
+    },
+
+    error => {
+      console.log(
+        'Collection subscription error:',
+        error,
+      );
+
+      callback([]);
+    },
+  );
 };
-
+/*
+ * GET ONE CUSTOMER'S COLLECTION
+ */
 export const getCustomerCollection = async (
   customerId: string,
   date: string,
   session: 'Morning' | 'Evening',
 ) => {
   const q = query(
-    collection(db, 'collections'),
+    collection(
+      db,
+      'collections',
+      date,
+      'entries',
+    ),
     where('customerId', '==', customerId),
-    where('dateString', '==', date),
     where('session', '==', session),
   );
 
@@ -91,32 +156,65 @@ export const getCustomerCollection = async (
   } as MilkCollection;
 };
 
+
+/*
+ * REAL-TIME MONTHLY COLLECTIONS
+ *
+ * Searches all "entries" subcollections.
+ */
 export const subscribeToCollectionsByMonth = (
   monthStart: string,
   monthEnd: string,
   callback: (collections: MilkCollection[]) => void,
 ) => {
+
   const q = query(
-    collection(db, 'collections'),
-    where('dateString', '>=', monthStart),
-    where('dateString', '<=', monthEnd),
+    collectionGroup(db, 'entries'),
   );
 
-  return onSnapshot(q, snapshot => {
-    const collections =
-      snapshot.docs.map(item => ({
-        id: item.id,
-        ...item.data(),
-      })) as MilkCollection[];
+  return onSnapshot(
+    q,
+    snapshot => {
 
-    callback(collections);
-  });
+      const allCollections =
+        snapshot.docs.map(item => ({
+          id: item.id,
+          ...item.data(),
+        })) as MilkCollection[];
+
+      const monthlyCollections =
+        allCollections.filter(item =>
+          item.dateString >= monthStart &&
+          item.dateString <= monthEnd,
+        );
+
+      callback(monthlyCollections);
+    },
+
+    error => {
+      console.log(
+        'Monthly collection error:',
+        error,
+      );
+
+      callback([]);
+    },
+  );
 };
-
+/*
+ * DELETE COLLECTION
+ */
 export const deleteCollection = async (
+  date: string,
   collectionId: string,
 ) => {
   await deleteDoc(
-    doc(db, 'collections', collectionId),
+    doc(
+      db,
+      'collections',
+      date,
+      'entries',
+      collectionId,
+    ),
   );
 };
