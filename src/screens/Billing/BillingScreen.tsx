@@ -40,12 +40,12 @@ export default function BillingScreen() {
     useState<MilkCollection[]>([]);
 
   const navigation = useNavigation<any>();
-
   const [savedPayments, setSavedPayments] =
     useState<{
       [customerId: string]: {
         paidAmount: number;
         remainingAmount: number;
+        advanceAmount: number;
         status: 'Paid' | 'Pending';
       };
     }>({});
@@ -142,6 +142,7 @@ export default function BillingScreen() {
             [customerId: string]: {
               paidAmount: number;
               remainingAmount: number;
+              advanceAmount: number;
               status: 'Paid' | 'Pending';
             };
           } = {};
@@ -158,6 +159,11 @@ export default function BillingScreen() {
               remainingAmount:
                 Number(
                   bill.remainingAmount || 0,
+                ),
+
+              advanceAmount:
+                Number(
+                  bill.advanceAmount || 0,
                 ),
 
               status: bill.status,
@@ -267,14 +273,20 @@ export default function BillingScreen() {
       getEveningQuantity(customerId)
     );
   };
-
   const getBillAmount = (
     customer: Customer,
   ) => {
-    return (
-      getTotalQuantity(customer.id!) *
-      Number(customer.rate || 0)
-    );
+    return collections
+      .filter(
+        item =>
+          item.customerId === customer.id!,
+      )
+      .reduce(
+        (total, item) =>
+          total +
+          Number(item.amount || 0),
+        0,
+      );
   };
 
   const getPaidAmount = (
@@ -287,6 +299,15 @@ export default function BillingScreen() {
     );
   };
 
+  const getAdvanceAmount = (
+    customerId: string,
+  ) => {
+    return (
+      savedPayments[
+        customerId
+      ]?.advanceAmount || 0
+    );
+  };
   const getRemainingAmount = (
     customer: Customer,
   ) => {
@@ -298,10 +319,7 @@ export default function BillingScreen() {
         customer.id!,
       );
 
-    return Math.max(
-      bill - paid,
-      0,
-    );
+    return bill - paid;
   };
 
   const updatePayment = async (
@@ -328,42 +346,97 @@ export default function BillingScreen() {
     const newTotalPaid =
       alreadyPaid + newPayment;
 
-    if (newTotalPaid > total) {
-      Alert.alert(
-        'Invalid Amount',
-        `You can collect only ₹${(
-          total - alreadyPaid
-        ).toFixed(2)} more.`,
+    const advanceAmount =
+      Math.max(
+        newTotalPaid - total,
+        0,
       );
+
+    // NORMAL PAYMENT
+    if (advanceAmount === 0) {
+      try {
+        await saveBillPayment(
+          customer.id!,
+          monthString,
+          total,
+          newTotalPaid,
+        );
+
+        setCashInputs(prev => ({
+          ...prev,
+          [customer.id!]: '',
+        }));
+
+        Alert.alert(
+          'Success',
+          `₹${newPayment.toFixed(2)} payment added.`,
+        );
+
+      } catch (error) {
+        console.log(error);
+
+        Alert.alert(
+          'Error',
+          'Failed to update payment.',
+        );
+      }
+
       return;
     }
 
-    try {
-      await saveBillPayment(
-        customer.id!,
-        monthString,
-        total,
-        newTotalPaid,
-      );
+    // EXTRA PAYMENT
+    Alert.alert(
+      'Extra Payment',
+      `Remaining bill: ₹${Math.max(
+        total - alreadyPaid,
+        0,
+      ).toFixed(2)}
 
-      setCashInputs(prev => ({
-        ...prev,
-        [customer.id!]: '',
-      }));
+Payment received: ₹${newPayment.toFixed(2)}
 
-      Alert.alert(
-        'Success',
-        `₹${newPayment.toFixed(2)} payment added.`,
-      );
+Extra amount: ₹${advanceAmount.toFixed(2)}
 
-    } catch (error) {
-      console.log(error);
+Are you sure you want to add the extra amount?`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Yes, Add',
+          onPress: async () => {
+            try {
+              await saveBillPayment(
+                customer.id!,
+                monthString,
+                total,
+                newTotalPaid,
+              );
 
-      Alert.alert(
-        'Error',
-        'Failed to update payment.',
-      );
-    }
+              setCashInputs(prev => ({
+                ...prev,
+                [customer.id!]: '',
+              }));
+
+              Alert.alert(
+                'Success',
+                `Payment added successfully.\nExtra ₹${advanceAmount.toFixed(
+                  2,
+                )} saved as advance.`,
+              );
+
+            } catch (error) {
+              console.log(error);
+
+              Alert.alert(
+                'Error',
+                'Failed to update payment.',
+              );
+            }
+          },
+        },
+      ],
+    );
   };
   return (
     <SafeAreaView
@@ -548,6 +621,11 @@ export default function BillingScreen() {
                 customer.id!,
               );
 
+            const advance =
+              getAdvanceAmount(
+                customer.id!,
+              );
+
             const remaining =
               getRemainingAmount(
                 customer,
@@ -642,21 +720,22 @@ export default function BillingScreen() {
                       ₹{paid.toFixed(2)}
                     </Text>
                   </View>
-
                   <View>
-                    <Text
-                      style={styles.label}>
-                      Remaining
+                    <Text style={styles.label}>
+                      {remaining < 0
+                        ? 'Advance'
+                        : 'Remaining'}
                     </Text>
 
                     <Text
-                      style={
-                        styles.remainingValue
-                      }>
-                      ₹{remaining.toFixed(2)}
+                      style={[
+                        remaining < 0
+                          ? styles.advanceValue
+                          : styles.remainingValue,
+                      ]}>
+                      ₹{Math.abs(remaining).toFixed(2)}
                     </Text>
                   </View>
-
                 </View>
 
                 <Text
@@ -725,6 +804,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F5F7FA',
+  },
+
+  advanceValue: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#2E7D32',
   },
 
   paymentGap: {

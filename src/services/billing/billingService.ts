@@ -12,25 +12,38 @@ import {
 
 const db = getFirestore();
 const billsRef = collection(db, 'bills');
-
 export const saveBillPayment = async (
   customerId: string,
   month: string,
   totalAmount: number,
   paidAmount: number,
 ) => {
+
   const q = query(
     billsRef,
-    where('customerId', '==', customerId),
-    where('month', '==', month),
+    where(
+      'customerId',
+      '==',
+      customerId,
+    ),
+    where(
+      'month',
+      '==',
+      month,
+    ),
   );
 
-  const snapshot = await getDocs(q);
+  const snapshot =
+    await getDocs(q);
 
-  const remainingAmount = Math.max(
-    totalAmount - paidAmount,
-    0,
-  );
+  const remainingAmount =
+    totalAmount - paidAmount;
+
+  const advanceAmount =
+    Math.max(
+      paidAmount - totalAmount,
+      0,
+    );
 
   const status =
     remainingAmount <= 0
@@ -38,14 +51,21 @@ export const saveBillPayment = async (
       : 'Pending';
 
   if (!snapshot.empty) {
-    const existingDoc = snapshot.docs[0];
+
+    const existingDoc =
+      snapshot.docs[0];
 
     await updateDoc(
-      doc(db, 'bills', existingDoc.id),
+      doc(
+        db,
+        'bills',
+        existingDoc.id,
+      ),
       {
         totalAmount,
         paidAmount,
         remainingAmount,
+        advanceAmount,
         status,
       },
     );
@@ -59,8 +79,10 @@ export const saveBillPayment = async (
     totalAmount,
     paidAmount,
     remainingAmount,
+    advanceAmount,
     status,
   });
+
 };
 
 export const subscribeToBillPayments = (

@@ -104,10 +104,6 @@ export default function CollectionScreen() {
             {customer.name}
           </Text>
 
-          <Text style={styles.info}>
-            📍 {customer.village}
-          </Text>
-
           <Text style={styles.rate}>
             ₹{customer.rate}/L
           </Text>
