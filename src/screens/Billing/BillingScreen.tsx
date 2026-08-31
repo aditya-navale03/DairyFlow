@@ -27,6 +27,7 @@ import {
 import {
   saveBillPayment,
   subscribeToBillPayments,
+  getPreviousMonthAdvance,
 } from '../../services/billing/billingService';
 
 import { Customer } from '../../types/customer';
@@ -47,6 +48,15 @@ export default function BillingScreen() {
         remainingAmount: number;
         advanceAmount: number;
         status: 'Paid' | 'Pending';
+      };
+    }>({});
+
+
+  const [previousAdvances, setPreviousAdvances] =
+    useState<{
+      [customerId: string]: {
+        advanceAmount: number;
+        previousMonth: string;
       };
     }>({});
 
@@ -178,6 +188,43 @@ export default function BillingScreen() {
 
     return unsubscribe;
   }, [monthString]);
+  useEffect(() => {
+    const loadPreviousAdvances = async () => {
+      const advanceData: {
+        [customerId: string]: {
+          advanceAmount: number;
+          previousMonth: string;
+        };
+      } = {};
+
+      for (const customer of customers) {
+        if (!customer.id) {
+          continue;
+        }
+
+        const result =
+          await getPreviousMonthAdvance(
+            customer.id,
+            monthString,
+          );
+
+        advanceData[customer.id] = {
+          advanceAmount:
+            result.advanceAmount,
+          previousMonth:
+            result.previousMonth,
+        };
+      }
+
+      setPreviousAdvances(
+        advanceData,
+      );
+    };
+
+    if (customers.length > 0) {
+      loadPreviousAdvances();
+    }
+  }, [customers, monthString]);
 
   const changeMonth = (
     direction: 'previous' | 'next',
@@ -288,6 +335,15 @@ export default function BillingScreen() {
         0,
       );
   };
+  const getPreviousAdvanceAmount = (
+    customerId: string,
+  ) => {
+    return (
+      previousAdvances[
+        customerId
+      ]?.advanceAmount || 0
+    );
+  };
 
   const getPaidAmount = (
     customerId: string,
@@ -308,29 +364,43 @@ export default function BillingScreen() {
       ]?.advanceAmount || 0
     );
   };
-  const getRemainingAmount = (
+  const getNetPayableAmount = (
     customer: Customer,
   ) => {
     const bill =
       getBillAmount(customer);
 
     const paid =
-      getPaidAmount(
-        customer.id!,
-      );
+      getPaidAmount(customer.id!);
 
-    return bill - paid;
+    const previousAdvance =
+      getPreviousAdvanceAmount(customer.id!);
+
+    return (
+      bill -
+      previousAdvance -
+      paid
+    );
   };
-
   const updatePayment = async (
     customer: Customer,
   ) => {
     const newPayment = Number(
       cashInputs[customer.id!] || 0,
     );
+    const billAmount =
+      getBillAmount(customer);
+
+    const previousAdvance =
+      getPreviousAdvanceAmount(
+        customer.id!,
+      );
 
     const total =
-      getBillAmount(customer);
+      Math.max(
+        billAmount - previousAdvance,
+        0,
+      );
 
     const alreadyPaid =
       getPaidAmount(customer.id!);
@@ -621,14 +691,24 @@ Are you sure you want to add the extra amount?`,
                 customer.id!,
               );
 
-            const advance =
-              getAdvanceAmount(
-                customer.id!,
-              );
+            const previousAdvance =
+              previousAdvances[
+                customer.id!
+              ]?.advanceAmount || 0;
+
+            const previousAdvanceMonth =
+              previousAdvances[
+                customer.id!
+              ]?.previousMonth || '';
+            const netAmount =
+              getNetPayableAmount(customer);
 
             const remaining =
-              getRemainingAmount(
-                customer,
+              Math.max(netAmount, 0);
+
+            const newAdvance =
+              Math.abs(
+                Math.min(netAmount, 0),
               );
 
             const isPaid =
@@ -666,6 +746,8 @@ Are you sure you want to add the extra amount?`,
 
                   </View>
 
+                  <View>
+                  </View>
                   <Text
                     style={[
                       styles.status,
@@ -684,6 +766,22 @@ Are you sure you want to add the extra amount?`,
 
                 <View
                   style={styles.amountRow}>
+
+                  {previousAdvance > 0 && (
+                    <View style={styles.previousAdvanceBox}>
+                      <Text style={styles.previousAdvanceLabel}>
+                        Previous Advance
+                      </Text>
+
+                      <Text style={styles.previousAdvanceAmount}>
+                        ₹{previousAdvance.toFixed(2)}
+                      </Text>
+
+                      <Text style={styles.previousAdvanceMonth}>
+                        From {previousAdvanceMonth}
+                      </Text>
+                    </View>
+                  )}
 
                   <View>
                     <Text
@@ -806,6 +904,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5F7FA',
   },
 
+  previousMonthText: {
+    fontSize: 10,
+    color: '#777',
+    marginTop: 2,
+  },
+
   advanceValue: {
     fontSize: 14,
     fontWeight: '700',
@@ -887,6 +991,33 @@ const styles = StyleSheet.create({
   smallColumn: {
     flex: 1,
     alignItems: 'center',
+  },
+
+  previousAdvanceBox: {
+    backgroundColor: '#E8F5E9',
+    borderRadius: 10,
+    padding: 10,
+    marginTop: 12,
+    alignItems: 'center',
+  },
+
+  previousAdvanceLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#2E7D32',
+  },
+
+  previousAdvanceAmount: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1B5E20',
+    marginTop: 3,
+  },
+
+  previousAdvanceMonth: {
+    fontSize: 12,
+    color: '#555',
+    marginTop: 3,
   },
 
   headerText: {

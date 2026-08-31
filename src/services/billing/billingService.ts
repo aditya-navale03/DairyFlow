@@ -103,3 +103,110 @@ export const subscribeToBillPayments = (
     callback(bills);
   });
 };
+
+export const getPreviousMonthAdvance = async (
+  customerId: string,
+  currentMonth: string,
+) => {
+  const currentDate = new Date(
+    `${currentMonth}-01`,
+  );
+
+  currentDate.setMonth(
+    currentDate.getMonth() - 1,
+  );
+
+  const previousMonth =
+    `${currentDate.getFullYear()}-${String(
+      currentDate.getMonth() + 1,
+    ).padStart(2, '0')}`;
+
+  const q = query(
+    billsRef,
+    where(
+      'customerId',
+      '==',
+      customerId,
+    ),
+    where(
+      'month',
+      '==',
+      previousMonth,
+    ),
+  );
+
+  const snapshot = await getDocs(q);
+
+  if (snapshot.empty) {
+    return {
+      advanceAmount: 0,
+      previousMonth,
+    };
+  }
+
+  const bill =
+    snapshot.docs[0].data();
+
+  return {
+    advanceAmount:
+      Number(
+        bill.advanceAmount || 0,
+      ),
+    previousMonth,
+  };
+};
+
+export const getPreviousAdvance = async (
+  customerId: string,
+  currentMonth: string,
+) => {
+  const [year, monthNumber] =
+    currentMonth.split('-').map(Number);
+
+  // Get previous month
+  const previousDate = new Date(
+    year,
+    monthNumber - 2,
+    1,
+  );
+
+  const previousMonth =
+    `${previousDate.getFullYear()}-${String(
+      previousDate.getMonth() + 1,
+    ).padStart(2, '0')}`;
+
+  const q = query(
+    billsRef,
+    where(
+      'customerId',
+      '==',
+      customerId,
+    ),
+    where(
+      'month',
+      '==',
+      previousMonth,
+    ),
+  );
+
+  const snapshot = await getDocs(q);
+
+  if (snapshot.empty) {
+    return {
+      advanceAmount: 0,
+      advanceFromMonth: '',
+    };
+  }
+
+  const previousBill =
+    snapshot.docs[0].data();
+
+  const advanceAmount = Number(
+    previousBill.advanceAmount || 0,
+  );
+
+  return {
+    advanceAmount,
+    advanceFromMonth: previousMonth,
+  };
+};
