@@ -6,6 +6,7 @@ import LoginScreen from '../screens/Auth/LoginScreen';
 import DashboardScreen from '../screens/Dashboard/DashboardScreen';
 
 import CustomerPaymentScreen from '../screens/Billing/CustomerPaymentScreen';
+import CustomerReceiptScreen from '../screens/Billing/CustomerReceiptScreen';
 import BottomTabNavigator from './BottomTabNavigation';
 
 export type RootStackParamList = {
@@ -14,6 +15,12 @@ export type RootStackParamList = {
   Main: undefined;
 
   CustomerPayment: {
+    customerId: string;
+    customerName: string;
+    monthString: string;
+  };
+
+  CustomerReceipt: {
     customerId: string;
     customerName: string;
     monthString: string;
@@ -34,6 +41,7 @@ export default function RootNavigator() {
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="Main" component={BottomTabNavigator} />
       <Stack.Screen name="CustomerPayment" component={CustomerPaymentScreen} />
+      <Stack.Screen name="CustomerReceipt" component={CustomerReceiptScreen} />
     </Stack.Navigator>
   );
 }

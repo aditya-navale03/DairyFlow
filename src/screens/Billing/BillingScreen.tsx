@@ -10,6 +10,8 @@ import {
   View,
   Alert,
   Animated,
+  ActivityIndicator,
+
 } from 'react-native';
 
 import AppHeader from '../../components/common/AppHeader';
@@ -28,6 +30,8 @@ import {
   saveBillPayment,
   subscribeToBillPayments,
   getPreviousMonthAdvance,
+  savePaymentHistory,
+  getCustomerPaymentHistory,
 } from '../../services/billing/billingService';
 
 import { Customer } from '../../types/customer';
@@ -51,6 +55,23 @@ export default function BillingScreen() {
       };
     }>({});
 
+
+  const [isLoading, setIsLoading] = useState(true);
+  const [customersLoaded, setCustomersLoaded] =
+    useState(false);
+
+  const [collectionsLoaded, setCollectionsLoaded] =
+    useState(false);
+
+  const [paymentsLoaded, setPaymentsLoaded] =
+    useState(false);
+
+  const [advancesLoaded, setAdvancesLoaded] =
+    useState(false);
+
+
+  const [loadingAdvances, setLoadingAdvances] =
+    useState(false);
 
   const [previousAdvances, setPreviousAdvances] =
     useState<{
@@ -98,6 +119,7 @@ export default function BillingScreen() {
     const unsubscribeCustomers =
       subscribeToCustomers(data => {
         setCustomers(data);
+        setCustomersLoaded(true);
       });
 
     return unsubscribeCustomers;
@@ -124,6 +146,7 @@ export default function BillingScreen() {
           );
 
           setCollections(data);
+          setCollectionsLoaded(true);
         },
       );
 
@@ -179,10 +202,8 @@ export default function BillingScreen() {
               status: bill.status,
             };
           });
-
-          setSavedPayments(
-            paymentData,
-          );
+          setSavedPayments(paymentData);
+          setPaymentsLoaded(true);
         },
       );
 
@@ -190,41 +211,58 @@ export default function BillingScreen() {
   }, [monthString]);
   useEffect(() => {
     const loadPreviousAdvances = async () => {
+      setLoadingAdvances(true)
       const advanceData: {
         [customerId: string]: {
           advanceAmount: number;
           previousMonth: string;
         };
       } = {};
+      await Promise.all(
+        customers.map(async customer => {
+          if (!customer.id) return;
 
-      for (const customer of customers) {
-        if (!customer.id) {
-          continue;
-        }
+          const result =
+            await getPreviousMonthAdvance(
+              customer.id,
+              monthString,
+            );
 
-        const result =
-          await getPreviousMonthAdvance(
-            customer.id,
-            monthString,
-          );
-
-        advanceData[customer.id] = {
-          advanceAmount:
-            result.advanceAmount,
-          previousMonth:
-            result.previousMonth,
-        };
-      }
-
-      setPreviousAdvances(
-        advanceData,
+          advanceData[customer.id] = {
+            advanceAmount: result.advanceAmount,
+            previousMonth: result.previousMonth,
+          };
+        }),
       );
+      setPreviousAdvances(advanceData);
+      setAdvancesLoaded(true);
+
     };
+    setPreviousAdvances({});
 
     if (customers.length > 0) {
       loadPreviousAdvances();
+    } else {
+      setIsLoading(false);
     }
   }, [customers, monthString]);
+
+
+  useEffect(() => {
+    if (
+      customersLoaded &&
+      collectionsLoaded &&
+      paymentsLoaded &&
+      advancesLoaded
+    ) {
+      setIsLoading(false);
+    }
+  }, [
+    customersLoaded,
+    collectionsLoaded,
+    paymentsLoaded,
+    advancesLoaded,
+  ]);
 
   const changeMonth = (
     direction: 'previous' | 'next',
@@ -364,30 +402,37 @@ export default function BillingScreen() {
       ]?.advanceAmount || 0
     );
   };
-  const getNetPayableAmount = (
-    customer: Customer,
-  ) => {
-    const bill =
-      getBillAmount(customer);
+  // const getNetPayableAmount = (
+  //   customer: Customer,
+  // ) => {
+  //   const bill =
+  //     getBillAmount(customer);
+  //   const cashPaid = getPaidAmount(customer.id!);
 
-    const paid =
-      getPaidAmount(customer.id!);
+  //   const previousAdvanceUsed = Math.min(
+  //     previousAdvance,
+  //     bill,
+  //   );
 
-    const previousAdvance =
-      getPreviousAdvanceAmount(customer.id!);
+  //   const paid =
+  //     previousAdvanceUsed + cashPaid;
 
-    return (
-      bill -
-      previousAdvance -
-      paid
-    );
-  };
+  //   const previousAdvance =
+  //     getPreviousAdvanceAmount(customer.id!);
+
+  //   return (
+  //     bill -
+  //     previousAdvance -
+  //     paid
+  //   );
+  // };
   const updatePayment = async (
     customer: Customer,
   ) => {
     const newPayment = Number(
       cashInputs[customer.id!] || 0,
     );
+
     const billAmount =
       getBillAmount(customer);
 
@@ -396,14 +441,10 @@ export default function BillingScreen() {
         customer.id!,
       );
 
-    const total =
-      Math.max(
-        billAmount - previousAdvance,
-        0,
+    const savedCashPaid =
+      getPaidAmount(
+        customer.id!,
       );
-
-    const alreadyPaid =
-      getPaidAmount(customer.id!);
 
     if (newPayment <= 0) {
       Alert.alert(
@@ -413,101 +454,101 @@ export default function BillingScreen() {
       return;
     }
 
-    const newTotalPaid =
-      alreadyPaid + newPayment;
+    // Previous advance automatically pays the bill first
+    const previousAdvanceUsed =
+      Math.min(
+        previousAdvance,
+        billAmount,
+      );
 
-    const advanceAmount =
+    // Bill still due after previous advance
+    const billAfterAdvance =
       Math.max(
-        newTotalPaid - total,
+        billAmount -
+        previousAdvanceUsed,
         0,
       );
 
-    // NORMAL PAYMENT
-    if (advanceAmount === 0) {
-      try {
-        await saveBillPayment(
-          customer.id!,
-          monthString,
-          total,
-          newTotalPaid,
-        );
-
-        setCashInputs(prev => ({
-          ...prev,
-          [customer.id!]: '',
-        }));
-
-        Alert.alert(
-          'Success',
-          `₹${newPayment.toFixed(2)} payment added.`,
-        );
-
-      } catch (error) {
-        console.log(error);
-
-        Alert.alert(
-          'Error',
-          'Failed to update payment.',
-        );
-      }
-
-      return;
-    }
-
-    // EXTRA PAYMENT
-    Alert.alert(
-      'Extra Payment',
-      `Remaining bill: ₹${Math.max(
-        total - alreadyPaid,
+    // Cash still needed
+    const cashRemaining =
+      Math.max(
+        billAfterAdvance -
+        savedCashPaid,
         0,
-      ).toFixed(2)}
+      );
 
-Payment received: ₹${newPayment.toFixed(2)}
+    // Cash used to pay bill
+    const paymentUsed =
+      Math.min(
+        newPayment,
+        cashRemaining,
+      );
 
-Extra amount: ₹${advanceAmount.toFixed(2)}
+    // Extra cash becomes new advance
+    const newAdvance =
+      Math.max(
+        newPayment -
+        cashRemaining,
+        0,
+      );
 
-Are you sure you want to add the extra amount?`,
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Yes, Add',
-          onPress: async () => {
-            try {
-              await saveBillPayment(
-                customer.id!,
-                monthString,
-                total,
-                newTotalPaid,
-              );
+    const totalCashPaid =
+      savedCashPaid + paymentUsed;
 
-              setCashInputs(prev => ({
-                ...prev,
-                [customer.id!]: '',
-              }));
-
-              Alert.alert(
-                'Success',
-                `Payment added successfully.\nExtra ₹${advanceAmount.toFixed(
-                  2,
-                )} saved as advance.`,
-              );
-
-            } catch (error) {
-              console.log(error);
-
-              Alert.alert(
-                'Error',
-                'Failed to update payment.',
-              );
-            }
-          },
-        },
-      ],
+    await savePaymentHistory(
+      customer.id!,
+      monthString,
+      paymentUsed,
     );
+
+    try {
+      await saveBillPayment(
+        customer.id!,
+        monthString,
+        billAmount,
+        previousAdvanceUsed,
+        totalCashPaid,
+        newAdvance,
+      );
+
+      setCashInputs(prev => ({
+        ...prev,
+        [customer.id!]: '',
+      }));
+
+      Alert.alert(
+        'Success',
+        `₹${paymentUsed.toFixed(2)} paid.` +
+        (newAdvance > 0
+          ? `\n₹${newAdvance.toFixed(2)} saved as advance.`
+          : ''),
+      );
+    } catch (error) {
+      console.log(error);
+
+      Alert.alert(
+        'Error',
+        'Failed to update payment.',
+      );
+    }
   };
+
+  if (isLoading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator
+            size="large"
+            color="#1976D2"
+          />
+
+          <Text style={styles.loadingText}>
+            Loading billing...
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
   return (
     <SafeAreaView
       style={styles.container}>
@@ -685,8 +726,7 @@ Are you sure you want to add the extra amount?`,
 
             const bill =
               getBillAmount(customer);
-
-            const paid =
+            const cashPaid =
               getPaidAmount(
                 customer.id!,
               );
@@ -696,49 +736,86 @@ Are you sure you want to add the extra amount?`,
                 customer.id!
               ]?.advanceAmount || 0;
 
+            const previousAdvanceUsed =
+              Math.min(
+                previousAdvance,
+                bill,
+              );
+
+            const paid =
+              previousAdvanceUsed + cashPaid;
+
+
             const previousAdvanceMonth =
               previousAdvances[
                 customer.id!
               ]?.previousMonth || '';
-            const netAmount =
-              getNetPayableAmount(customer);
+
+
+            const totalPaid = paid;
 
             const remaining =
-              Math.max(netAmount, 0);
-
+              Math.max(
+                bill - totalPaid,
+                0,
+              );
             const newAdvance =
-              Math.abs(
-                Math.min(netAmount, 0),
+              Math.max(
+                cashPaid -
+                Math.max(
+                  bill - previousAdvanceUsed,
+                  0,
+                ),
+                0,
               );
 
+            const advanceRemaining =
+              Math.max(
+                previousAdvance - bill,
+                0,
+              );
             const isPaid =
               bill > 0 &&
-              remaining <= 0;
+              remaining === 0;
 
             return (
               <View
                 key={`payment-${customer.id}`}
                 style={styles.billingCard}>
 
-                <View
-                  style={styles.billingHeader}>
+                <View style={styles.billingHeader}>
 
                   <View style={styles.billingCustomer}>
 
-                    <TouchableOpacity
-                      onPress={() =>
-                        navigation.navigate('CustomerPayment', {
-                          customerId: customer.id!,
-                          monthString,
-                        })
-                      }>
+                    <View style={styles.nameAdvanceRow}>
+                      <TouchableOpacity
+                        onPress={() =>
+                          navigation.navigate('CustomerPayment', {
+                            customerId: customer.id!,
+                            customerName: customer.name,
+                            monthString,
+                          })
+                        }>
+                        <Text
+                          style={styles.billingName}
+                          numberOfLines={1}>
+                          #{customer.collectionOrder} {customer.name}
+                        </Text>
+                      </TouchableOpacity>
 
-                      <Text style={styles.billingName}>
-                        #{customer.collectionOrder}{' '}
-                        {customer.name}
-                      </Text>
+                      {advanceRemaining > 0 && (
+                        <View style={styles.previousAdvanceBox}>
+                          <Text style={styles.previousAdvanceLabel}>
+                            Advance
+                          </Text>
 
-                    </TouchableOpacity>
+                          <Text style={styles.previousAdvanceAmount}>
+                            ₹{advanceRemaining.toFixed(2)}
+                          </Text>
+                        </View>
+                      )}
+
+                    </View>
 
                     <Text style={styles.rateText}>
                       ₹{customer.rate}/L
@@ -746,8 +823,6 @@ Are you sure you want to add the extra amount?`,
 
                   </View>
 
-                  <View>
-                  </View>
                   <Text
                     style={[
                       styles.status,
@@ -755,33 +830,13 @@ Are you sure you want to add the extra amount?`,
                         ? styles.paid
                         : styles.pending,
                     ]}>
-
-                    {isPaid
-                      ? 'PAID'
-                      : 'PENDING'}
-
+                    {isPaid ? 'PAID' : 'PENDING'}
                   </Text>
 
                 </View>
 
                 <View
                   style={styles.amountRow}>
-
-                  {previousAdvance > 0 && (
-                    <View style={styles.previousAdvanceBox}>
-                      <Text style={styles.previousAdvanceLabel}>
-                        Previous Advance
-                      </Text>
-
-                      <Text style={styles.previousAdvanceAmount}>
-                        ₹{previousAdvance.toFixed(2)}
-                      </Text>
-
-                      <Text style={styles.previousAdvanceMonth}>
-                        From {previousAdvanceMonth}
-                      </Text>
-                    </View>
-                  )}
 
                   <View>
                     <Text
@@ -820,7 +875,7 @@ Are you sure you want to add the extra amount?`,
                   </View>
                   <View>
                     <Text style={styles.label}>
-                      {remaining < 0
+                      {newAdvance > 0
                         ? 'Advance'
                         : 'Remaining'}
                     </Text>
@@ -831,8 +886,7 @@ Are you sure you want to add the extra amount?`,
                           ? styles.advanceValue
                           : styles.remainingValue,
                       ]}>
-                      ₹{Math.abs(remaining).toFixed(2)}
-                    </Text>
+                      ₹{(newAdvance > 0 ? newAdvance : remaining).toFixed(2)}                    </Text>
                   </View>
                 </View>
 
@@ -840,52 +894,55 @@ Are you sure you want to add the extra amount?`,
                   style={styles.cashLabel}>
                   Cash Collector / Paid
                 </Text>
+<View style={styles.paymentRow}>
 
-                <View
-                  style={styles.paymentRow}>
+  <TextInput
+    style={styles.cashInput}
+    placeholder="Enter paid amount"
+    placeholderTextColor="#888"
+    keyboardType="decimal-pad"
+    value={
+      cashInputs[
+        customer.id!
+      ] || ''
+    }
+    onChangeText={text =>
+      setCashInputs(prev => ({
+        ...prev,
+        [customer.id!]: text,
+      }))
+    }
+  />
 
-                  <TextInput
-                    style={styles.cashInput}
-                    placeholder="Enter paid amount"
-                    placeholderTextColor="#888"
-                    keyboardType="decimal-pad"
-                    value={
-                      cashInputs[
-                      customer.id!
-                      ] || ''
-                    }
-                    onChangeText={text =>
-                      setCashInputs(
-                        prev => ({
-                          ...prev,
-                          [customer.id!]:
-                            text,
-                        }),
-                      )
-                    }
-                  />
+  <TouchableOpacity
+    style={styles.updateButton}
+    onPress={() =>
+      updatePayment(customer)
+    }>
 
-                  <TouchableOpacity
-                    style={
-                      styles.updateButton
-                    }
-                    onPress={() =>
-                      updatePayment(
-                        customer,
-                      )
-                    }>
+    <Text style={styles.updateButtonText}>
+      UPDATE
+    </Text>
 
-                    <Text
-                      style={
-                        styles.updateButtonText
-                      }>
-                      UPDATE
-                    </Text>
+  </TouchableOpacity>
 
-                  </TouchableOpacity>
+</View>
 
-                </View>
+<TouchableOpacity
+  style={styles.receiptButton}
+  onPress={() =>
+    navigation.navigate('CustomerReceipt', {
+      customerId: customer.id!,
+      customerName: customer.name,
+      monthString,
+    })
+  }>
 
+  <Text style={styles.receiptButtonText}>
+    VIEW RECEIPT
+  </Text>
+
+</TouchableOpacity>
               </View>
             );
           })}
@@ -899,6 +956,38 @@ Are you sure you want to add the extra amount?`,
 }
 
 const styles = StyleSheet.create({
+
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  loadingText: {
+    marginTop: 10,
+    fontSize: 15,
+    color: '#555',
+  },
+
+  nameAdvanceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+
+  rateText: {
+    fontSize: 13,
+    color: '#777',
+    marginTop: 3,
+  },
+
+  billingCustomer: {
+    flex: 1,
+    marginRight: 8,
+  },
+
+
+
+
   container: {
     flex: 1,
     backgroundColor: '#F5F7FA',
@@ -942,6 +1031,7 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     elevation: 2,
   },
+
 
   monthButton: {
     backgroundColor: '#1976D2',
@@ -992,32 +1082,35 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
   },
-
   previousAdvanceBox: {
-    backgroundColor: '#E8F5E9',
-    borderRadius: 10,
-    padding: 10,
-    marginTop: 12,
+    backgroundColor: '#FFEBEE',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    marginTop: 0,
+    marginLeft: 50,
     alignItems: 'center',
+    justifyContent: 'center',
   },
 
   previousAdvanceLabel: {
-    fontSize: 13,
+    fontSize: 10,
     fontWeight: '700',
-    color: '#2E7D32',
+    color: '#C62828',
+    textAlign: 'center',
   },
 
   previousAdvanceAmount: {
-    fontSize: 20,
+    fontSize: 13,
     fontWeight: '700',
-    color: '#1B5E20',
-    marginTop: 3,
+    color: '#C62828',
+    marginTop: 1,
   },
 
   previousAdvanceMonth: {
-    fontSize: 12,
-    color: '#555',
-    marginTop: 3,
+    fontSize: 8,
+    color: '#666',
+    marginTop: 1,
   },
 
   headerText: {
@@ -1067,9 +1160,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 
-  billingCustomer: {
-    flex: 1,
-  },
 
   billingName: {
     fontSize: 17,
@@ -1077,11 +1167,6 @@ const styles = StyleSheet.create({
     color: '#222',
   },
 
-  rateText: {
-    fontSize: 13,
-    color: '#777',
-    marginTop: 3,
-  },
 
   status: {
     paddingHorizontal: 10,
@@ -1100,10 +1185,10 @@ const styles = StyleSheet.create({
     color: '#C62828',
     backgroundColor: '#FFEBEE',
   },
-
   amountRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
     marginTop: 15,
   },
 
@@ -1175,4 +1260,20 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
   },
+
+  receiptButton: {
+  marginTop: 10,
+  backgroundColor: '#EAF3FF',
+  borderWidth: 1,
+  borderColor: '#1976D2',
+  borderRadius: 10,
+  paddingVertical: 11,
+  alignItems: 'center',
+},
+
+receiptButtonText: {
+  color: '#1976D2',
+  fontSize: 13,
+  fontWeight: '700',
+},
 });

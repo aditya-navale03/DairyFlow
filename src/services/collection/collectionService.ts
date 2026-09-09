@@ -218,3 +218,29 @@ export const deleteCollection = async (
     ),
   );
 };
+export const getCustomerCollectionsByDateRange = async (
+  customerId: string,
+  startDate: string,
+  endDate: string,
+) => {
+  const q = collectionGroup(
+    db,
+    'entries',
+  );
+
+  const snapshot = await getDocs(q);
+
+  const collections: MilkCollection[] =
+    snapshot.docs.map(item => ({
+      id: item.id,
+      ...item.data(),
+    })) as MilkCollection[];
+
+  return collections.filter(item => {
+    return (
+      item.customerId === customerId &&
+      item.dateString >= startDate &&
+      item.dateString <= endDate
+    );
+  });
+};
