@@ -1,5 +1,4 @@
-import React, {useState} from 'react';
-
+import React, { useState } from 'react';
 import {
   SafeAreaView,
   Text,
@@ -8,7 +7,12 @@ import {
   TouchableOpacity,
   Platform,
   ScrollView,
+  Linking,
 } from 'react-native';
+
+import {NativeModules} from 'react-native';
+
+import RNFS from 'react-native-fs';
 
 import {
   getCustomerCollectionsByDateRange,
@@ -16,7 +20,15 @@ import {
 
 import DateTimePicker from '@react-native-community/datetimepicker';
 
+import {
+  getCustomerBill,
+} from '../../services/billing/billingService';
+
 import AppHeader from '../../components/common/AppHeader';
+
+import Share from 'react-native-share';
+
+import { generatePDF } from 'react-native-html-to-pdf';
 
 export default function CustomerReceiptScreen({
   route,
@@ -24,8 +36,11 @@ export default function CustomerReceiptScreen({
   const {
     customerId,
     customerName,
+    customerMobile,
     monthString,
   } = route.params;
+
+  const {DownloadModule} = NativeModules;
 
   const [startDate, setStartDate] =
     useState(new Date());
@@ -41,6 +56,9 @@ export default function CustomerReceiptScreen({
 
   const [receiptData, setReceiptData] =
     useState<any[]>([]);
+
+  const [billData, setBillData] =
+    useState<any>(null);
 
   const formatDate = (date: Date) => {
     return date.toLocaleDateString('en-IN', {
@@ -71,6 +89,13 @@ export default function CustomerReceiptScreen({
         );
 
       setReceiptData(data);
+      const bill =
+        await getCustomerBill(
+          customerId,
+          monthString,
+        );
+
+      setBillData(bill);
 
       console.log(
         'RECEIPT DATA:',
@@ -95,7 +120,142 @@ export default function CustomerReceiptScreen({
       total + Number(item.amount || 0),
     0,
   );
+  const printReceipt = async () => {
+    console.log(
+      'WHATSAPP NUMBER:',
+      customerMobile,
+    );
 
+    const phone =
+      customerMobile.replace(/\D/g, '');
+
+    const finalNumber =
+      phone.startsWith('91')
+        ? phone
+        : `91${phone}`;
+
+    try {
+      const rows = receiptData
+        .map(
+          item => `
+          <tr>
+            <td>${item.dateString}</td>
+            <td>${item.session}</td>
+            <td>${item.quantity} L</td>
+            <td>₹${item.rate}</td>
+            <td>₹${item.amount}</td>
+          </tr>
+        `,
+        )
+        .join('');
+
+      const html = `
+      <html>
+        <body>
+          <h2 style="text-align:center;">
+            Milk Bill
+          </h2>
+
+          <p>
+            <b>Customer:</b> ${customerName}
+          </p>
+
+          <p>
+            <b>From:</b> ${formatDate(startDate)}
+            &nbsp;&nbsp;
+            <b>To:</b> ${formatDate(endDate)}
+          </p>
+
+          <table
+            border="1"
+            cellspacing="0"
+            cellpadding="6"
+            width="100%">
+
+            <tr>
+              <th>Date</th>
+              <th>Session</th>
+              <th>Qty</th>
+              <th>Rate</th>
+              <th>Amount</th>
+            </tr>
+
+            ${rows}
+
+          </table>
+
+          <h3>
+            Total Milk: ${totalMilk} L
+          </h3>
+
+          <h3>
+            Total Amount: ₹${totalAmount}
+          </h3>
+
+          ${billData
+          ? `
+                <hr />
+
+                <h3>Payment Summary</h3>
+
+                <p>
+                  Milk Bill:
+                  ₹${Number(billData.billAmount || 0)}
+                </p>
+
+                <p>
+                  Paid:
+                  ₹${Number(billData.paidAmount || 0)}
+                </p>
+
+                <p>
+                  Remaining:
+                  ₹${Number(billData.remainingAmount || 0)}
+                </p>
+
+                <p>
+                  Advance:
+                  ₹${Number(billData.advanceAmount || 0)}
+                </p>
+              `
+          : ''
+        }
+
+        </body>
+      </html>
+    `;
+
+      const file = await generatePDF({
+        html,
+        fileName: `MilkReceipt_${customerName}`,
+      });
+
+      console.log(
+        'GENERATED PDF:',
+        file.filePath,
+      );
+
+      // Public Android Downloads folder
+      await DownloadModule.saveToDownloads(
+  file.filePath,
+  `MilkReceipt_${customerName}.pdf`,
+);
+
+
+      const whatsappUrl =
+        `https://wa.me/${finalNumber}`;
+
+      await Linking.openURL(
+        whatsappUrl,
+      );
+
+    } catch (error) {
+      console.log(
+        'RECEIPT ERROR:',
+        error,
+      );
+    }
+  };
   return (
     <SafeAreaView style={styles.container}>
       <AppHeader
@@ -192,6 +352,18 @@ export default function CustomerReceiptScreen({
 
         </TouchableOpacity>
 
+        {receiptData.length > 0 && (
+          <TouchableOpacity
+            style={styles.printButton}
+            onPress={printReceipt}>
+
+            <Text style={styles.printButtonText}>
+              PRINT / SHARE RECEIPT
+            </Text>
+
+          </TouchableOpacity>
+        )}
+
         {/* Receipt Data */}
 
         {receiptData.length > 0 && (
@@ -222,6 +394,10 @@ export default function CustomerReceiptScreen({
               </Text>
 
               <Text style={styles.headerText}>
+                Rate
+              </Text>
+
+              <Text style={styles.headerText}>
                 Amount
               </Text>
             </View>
@@ -243,6 +419,10 @@ export default function CustomerReceiptScreen({
 
                 <Text style={styles.resultText}>
                   {item.quantity} L
+                </Text>
+
+                <Text style={styles.resultText}>
+                  ₹{item.rate}
                 </Text>
 
                 <Text style={styles.resultText}>
@@ -274,7 +454,47 @@ export default function CustomerReceiptScreen({
               </Text>
             </View>
 
+            {/* Payment Summary */}
+
+            {billData && (
+              <View style={styles.billSummary}>
+
+                <Text style={styles.summaryTitle}>
+                  Payment Summary
+                </Text>
+
+                <View style={styles.summaryRow}>
+                  <Text>Milk Bill</Text>
+                  <Text>
+                    ₹{Number(billData.billAmount || 0)}
+                  </Text>
+                </View>
+
+                <View style={styles.summaryRow}>
+                  <Text>Paid</Text>
+                  <Text>
+                    ₹{Number(billData.paidAmount || 0)}
+                  </Text>
+                </View>
+
+                <View style={styles.summaryRow}>
+                  <Text>Remaining</Text>
+                  <Text>
+                    ₹{Number(billData.remainingAmount || 0)}
+                  </Text>
+                </View>
+
+                <View style={styles.summaryRow}>
+                  <Text>Advance</Text>
+                  <Text>
+                    ₹{Number(billData.advanceAmount || 0)}
+                  </Text>
+                </View>
+
+              </View>
+            )}
           </View>
+
         )}
 
         {receiptData.length === 0 && (
@@ -289,6 +509,44 @@ export default function CustomerReceiptScreen({
 }
 
 const styles = StyleSheet.create({
+
+  printButton: {
+    marginTop: 12,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#1976D2',
+    borderRadius: 10,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+
+  printButtonText: {
+    color: '#1976D2',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+
+  billSummary: {
+    marginTop: 20,
+    paddingTop: 15,
+    borderTopWidth: 1,
+    borderTopColor: '#DDDDDD',
+  },
+
+  summaryTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 10,
+    color: '#222',
+  },
+
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 6,
+    fontSize: 14,
+    color: '#444',
+  },
   container: {
     flex: 1,
     backgroundColor: '#F5F7FA',

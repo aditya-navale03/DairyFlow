@@ -894,55 +894,56 @@ export default function BillingScreen() {
                   style={styles.cashLabel}>
                   Cash Collector / Paid
                 </Text>
-<View style={styles.paymentRow}>
+                <View style={styles.paymentRow}>
 
-  <TextInput
-    style={styles.cashInput}
-    placeholder="Enter paid amount"
-    placeholderTextColor="#888"
-    keyboardType="decimal-pad"
-    value={
-      cashInputs[
-        customer.id!
-      ] || ''
-    }
-    onChangeText={text =>
-      setCashInputs(prev => ({
-        ...prev,
-        [customer.id!]: text,
-      }))
-    }
-  />
+                  <TextInput
+                    style={styles.cashInput}
+                    placeholder="Enter paid amount"
+                    placeholderTextColor="#888"
+                    keyboardType="decimal-pad"
+                    value={
+                      cashInputs[
+                      customer.id!
+                      ] || ''
+                    }
+                    onChangeText={text =>
+                      setCashInputs(prev => ({
+                        ...prev,
+                        [customer.id!]: text,
+                      }))
+                    }
+                  />
 
-  <TouchableOpacity
-    style={styles.updateButton}
-    onPress={() =>
-      updatePayment(customer)
-    }>
+                  <TouchableOpacity
+                    style={styles.updateButton}
+                    onPress={() =>
+                      updatePayment(customer)
+                    }>
 
-    <Text style={styles.updateButtonText}>
-      UPDATE
-    </Text>
+                    <Text style={styles.updateButtonText}>
+                      UPDATE
+                    </Text>
 
-  </TouchableOpacity>
+                  </TouchableOpacity>
 
-</View>
+                </View>
 
-<TouchableOpacity
-  style={styles.receiptButton}
-  onPress={() =>
-    navigation.navigate('CustomerReceipt', {
-      customerId: customer.id!,
-      customerName: customer.name,
-      monthString,
-    })
-  }>
+                <TouchableOpacity
+                  style={styles.receiptButton}
+                  onPress={() =>
+                    navigation.navigate('CustomerReceipt', {
+                      customerId: customer.id!,
+                      customerName: customer.name,
+                      customerMobile: customer.mobile,
+                      monthString,
+                    })
+                  }>
 
-  <Text style={styles.receiptButtonText}>
-    VIEW RECEIPT
-  </Text>
+                  <Text style={styles.receiptButtonText}>
+                    VIEW RECEIPT
+                  </Text>
 
-</TouchableOpacity>
+                </TouchableOpacity>
               </View>
             );
           })}
@@ -1262,18 +1263,18 @@ const styles = StyleSheet.create({
   },
 
   receiptButton: {
-  marginTop: 10,
-  backgroundColor: '#EAF3FF',
-  borderWidth: 1,
-  borderColor: '#1976D2',
-  borderRadius: 10,
-  paddingVertical: 11,
-  alignItems: 'center',
-},
+    marginTop: 10,
+    backgroundColor: '#EAF3FF',
+    borderWidth: 1,
+    borderColor: '#1976D2',
+    borderRadius: 10,
+    paddingVertical: 11,
+    alignItems: 'center',
+  },
 
-receiptButtonText: {
-  color: '#1976D2',
-  fontSize: 13,
-  fontWeight: '700',
-},
+  receiptButtonText: {
+    color: '#1976D2',
+    fontSize: 13,
+    fontWeight: '700',
+  },
 });

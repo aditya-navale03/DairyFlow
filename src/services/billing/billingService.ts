@@ -190,3 +190,25 @@ export const getCustomerPaymentHistory = async (
     ...item.data(),
   }));
 };
+
+export const getCustomerBill = async (
+  customerId: string,
+  monthString: string,
+) => {
+  const q = query(
+    billsRef,
+    where('customerId', '==', customerId),
+    where('month', '==', monthString),
+  );
+
+  const snapshot = await getDocs(q);
+
+  if (snapshot.empty) {
+    return null;
+  }
+
+  return {
+    id: snapshot.docs[0].id,
+    ...snapshot.docs[0].data(),
+  };
+};
