@@ -1,3 +1,7 @@
+import {
+  generatePaymentReceipt,
+} from '../../services/billing/paymentReceiptService';
+
 import React, { useEffect, useState, useRef } from 'react';
 
 import {
@@ -502,13 +506,24 @@ export default function BillingScreen() {
     );
 
     try {
-      await saveBillPayment(
+      const savedBill = await saveBillPayment(
         customer.id!,
         monthString,
         billAmount,
         previousAdvanceUsed,
         totalCashPaid,
         newAdvance,
+      );
+
+      await generatePaymentReceipt(
+        customer.name,
+        customer.mobile,
+        savedBill.billAmount,
+        savedBill.previousAdvanceUsed,
+        paymentUsed,
+        savedBill.remainingAmount,
+        savedBill.advanceAmount,
+        savedBill.paidAmount,
       );
 
       setCashInputs(prev => ({

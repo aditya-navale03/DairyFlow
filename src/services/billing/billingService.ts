@@ -69,24 +69,24 @@ export const saveBillPayment = async (
 
     status,
   };
-
-  if (!snapshot.empty) {
-    await updateDoc(
-      doc(
-        db,
-        'bills',
-        snapshot.docs[0].id,
-      ),
-      data,
-    );
-
-    return;
-  }
-
-  await addDoc(
-    billsRef,
+if (!snapshot.empty) {
+  await updateDoc(
+    doc(
+      db,
+      'bills',
+      snapshot.docs[0].id,
+    ),
     data,
   );
+
+  return data;
+}
+await addDoc(
+  billsRef,
+  data,
+);
+
+return data;
 };
 
 export const subscribeToBillPayments = (
