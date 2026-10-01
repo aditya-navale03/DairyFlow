@@ -164,15 +164,18 @@ export const savePaymentHistory = async (
   customerId: string,
   month: string,
   amount: number,
+  previousAdvanceUsed: number,
 ) => {
   await addDoc(paymentsRef, {
     customerId,
     month,
     amount,
+    previousAdvanceUsed,
     type: 'cash',
     createdAt: new Date(),
   });
 };
+
 export const getCustomerPaymentHistory = async (
   customerId: string,
   monthString: string,

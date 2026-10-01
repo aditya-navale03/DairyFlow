@@ -53,12 +53,15 @@ export default function BillingScreen() {
     useState<{
       [customerId: string]: {
         paidAmount: number;
+        cashPaid: number;
         remainingAmount: number;
         advanceAmount: number;
         status: 'Paid' | 'Pending';
       };
     }>({});
 
+  const [updatingCustomer, setUpdatingCustomer] =
+    useState<string | null>(null);
 
   const [isLoading, setIsLoading] = useState(true);
   const [customersLoaded, setCustomersLoaded] =
@@ -178,19 +181,22 @@ export default function BillingScreen() {
           const paymentData: {
             [customerId: string]: {
               paidAmount: number;
+              cashPaid: number;
               remainingAmount: number;
               advanceAmount: number;
               status: 'Paid' | 'Pending';
             };
           } = {};
-
           bills.forEach(bill => {
-            paymentData[
-              bill.customerId
-            ] = {
+            paymentData[bill.customerId] = {
               paidAmount:
                 Number(
                   bill.paidAmount || 0,
+                ),
+
+              cashPaid:
+                Number(
+                  bill.cashPaid || 0,
                 ),
 
               remainingAmount:
@@ -386,14 +392,13 @@ export default function BillingScreen() {
       ]?.advanceAmount || 0
     );
   };
-
   const getPaidAmount = (
     customerId: string,
   ) => {
     return (
       savedPayments[
         customerId
-      ]?.paidAmount || 0
+      ]?.cashPaid || 0
     );
   };
 
@@ -406,35 +411,13 @@ export default function BillingScreen() {
       ]?.advanceAmount || 0
     );
   };
-  // const getNetPayableAmount = (
-  //   customer: Customer,
-  // ) => {
-  //   const bill =
-  //     getBillAmount(customer);
-  //   const cashPaid = getPaidAmount(customer.id!);
-
-  //   const previousAdvanceUsed = Math.min(
-  //     previousAdvance,
-  //     bill,
-  //   );
-
-  //   const paid =
-  //     previousAdvanceUsed + cashPaid;
-
-  //   const previousAdvance =
-  //     getPreviousAdvanceAmount(customer.id!);
-
-  //   return (
-  //     bill -
-  //     previousAdvance -
-  //     paid
-  //   );
-  // };
   const updatePayment = async (
     customer: Customer,
   ) => {
-    const newPayment = Number(
-      cashInputs[customer.id!] || 0,
+
+    setUpdatingCustomer(customer.id!);
+
+    const newPayment = Number(cashInputs[customer.id!] || 0,
     );
 
     const billAmount =
@@ -451,21 +434,22 @@ export default function BillingScreen() {
       );
 
     if (newPayment <= 0) {
+      setUpdatingCustomer(null);
+
       Alert.alert(
         'Invalid Amount',
         'Enter a valid payment amount.',
       );
       return;
     }
-
-    // Previous advance automatically pays the bill first
+    // Previous advance pays the bill first
     const previousAdvanceUsed =
       Math.min(
         previousAdvance,
         billAmount,
       );
 
-    // Bill still due after previous advance
+    // Bill remaining after previous advance
     const billAfterAdvance =
       Math.max(
         billAmount -
@@ -473,39 +457,64 @@ export default function BillingScreen() {
         0,
       );
 
-    // Cash still needed
+    // Cash already used for this month's bill
+    const cashAlreadyUsed =
+      Math.min(
+        savedCashPaid,
+        billAfterAdvance,
+      );
+
+    // Cash still needed for the bill
     const cashRemaining =
       Math.max(
         billAfterAdvance -
-        savedCashPaid,
+        cashAlreadyUsed,
         0,
       );
 
-    // Cash used to pay bill
+    // New cash actually used for the bill
     const paymentUsed =
       Math.min(
         newPayment,
         cashRemaining,
       );
 
-    // Extra cash becomes new advance
-    const newAdvance =
+    // Extra new cash becomes advance
+    const extraCash =
       Math.max(
         newPayment -
         cashRemaining,
         0,
       );
 
+    // Unused previous advance carries forward
+    const unusedPreviousAdvance =
+      Math.max(
+        previousAdvance -
+        billAmount,
+        0,
+      );
+
+    // Total advance for next month
+    const newAdvance =
+      unusedPreviousAdvance +
+      extraCash;
+
     const totalCashPaid =
       savedCashPaid + paymentUsed;
 
-    await savePaymentHistory(
-      customer.id!,
-      monthString,
-      paymentUsed,
-    );
 
     try {
+
+
+      await savePaymentHistory(
+        customer.id!,
+        monthString,
+        paymentUsed,
+        previousAdvanceUsed,
+      );
+
+
       const savedBill = await saveBillPayment(
         customer.id!,
         monthString,
@@ -530,7 +539,7 @@ export default function BillingScreen() {
         ...prev,
         [customer.id!]: '',
       }));
-
+      setUpdatingCustomer(null);
       Alert.alert(
         'Success',
         `₹${paymentUsed.toFixed(2)} paid.` +
@@ -756,39 +765,44 @@ export default function BillingScreen() {
                 previousAdvance,
                 bill,
               );
+            const billAfterAdvance =
+              Math.max(
+                bill - previousAdvanceUsed,
+                0,
+              );
 
-            const paid =
-              previousAdvanceUsed + cashPaid;
-
-
-            const previousAdvanceMonth =
-              previousAdvances[
-                customer.id!
-              ]?.previousMonth || '';
-
-
-            const totalPaid = paid;
+            const cashUsedForBill =
+              Math.min(
+                cashPaid,
+                billAfterAdvance,
+              );
 
             const remaining =
               Math.max(
-                bill - totalPaid,
-                0,
-              );
-            const newAdvance =
-              Math.max(
-                cashPaid -
-                Math.max(
-                  bill - previousAdvanceUsed,
-                  0,
-                ),
+                billAfterAdvance - cashPaid,
                 0,
               );
 
-            const advanceRemaining =
+            const unusedPreviousAdvance =
               Math.max(
                 previousAdvance - bill,
                 0,
               );
+
+            const extraCash =
+              Math.max(
+                cashPaid - billAfterAdvance,
+                0,
+              );
+
+            const newAdvance =
+              unusedPreviousAdvance + extraCash;
+
+            const totalPaid =
+              previousAdvanceUsed + cashUsedForBill;
+
+            const advanceRemaining =
+              newAdvance;
             const isPaid =
               bill > 0 &&
               remaining === 0;
@@ -885,7 +899,7 @@ export default function BillingScreen() {
 
                     <Text
                       style={styles.paidValue}>
-                      ₹{paid.toFixed(2)}
+                      ₹{totalPaid.toFixed(2)}
                     </Text>
                   </View>
                   <View>
@@ -928,19 +942,19 @@ export default function BillingScreen() {
                       }))
                     }
                   />
-
                   <TouchableOpacity
                     style={styles.updateButton}
-                    onPress={() =>
-                      updatePayment(customer)
-                    }>
-
-                    <Text style={styles.updateButtonText}>
-                      UPDATE
-                    </Text>
-
+                    onPress={() => updatePayment(customer)}
+                    disabled={updatingCustomer === customer.id}
+                  >
+                    {updatingCustomer === customer.id ? (
+                      <ActivityIndicator color="#fff" />
+                    ) : (
+                      <Text style={styles.updateButtonText}>
+                        UPDATE
+                      </Text>
+                    )}
                   </TouchableOpacity>
-
                 </View>
 
                 <TouchableOpacity

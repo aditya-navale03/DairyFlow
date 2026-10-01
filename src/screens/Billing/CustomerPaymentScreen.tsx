@@ -57,11 +57,21 @@ export default function CustomerPaymentScreen({
 
     loadPayments();
   }, [customerId, monthString]);
-
-  const totalPaid = payments.reduce(
-    (total, item) => total + Number(item.amount || 0),
+  const cashPaid = payments.reduce(
+    (total, item) =>
+      total + Number(item.amount || 0),
     0,
   );
+
+  const advanceUsed = payments.reduce(
+    (total, item) =>
+      total +
+      Number(item.previousAdvanceUsed || 0),
+    0,
+  );
+
+  const totalPaid =
+    cashPaid + advanceUsed;
 
   const formatAmount = (amount: number) => {
     return `₹${Number(amount || 0).toLocaleString('en-IN', {
@@ -122,9 +132,8 @@ export default function CustomerPaymentScreen({
                 <View style={styles.summaryTop}>
                   <View>
                     <Text style={styles.summaryLabel}>
-                      TOTAL PAID
+                      TOTAL CASH PAID
                     </Text>
-
                     <Text style={styles.totalAmount}>
                       {formatAmount(totalPaid)}
                     </Text>
@@ -205,9 +214,17 @@ export default function CustomerPaymentScreen({
                 <Text style={styles.paymentTitle}>
                   Cash Payment
                 </Text>
+
                 <Text style={styles.paymentDate}>
                   {formatPaymentDate(item.createdAt)}
                 </Text>
+
+                {Number(item.previousAdvanceUsed || 0) > 0 && (
+                  <Text style={styles.advanceUsedText}>
+                    Previous Advance Used: ₹
+                    {Number(item.previousAdvanceUsed).toFixed(2)}
+                  </Text>
+                )}
               </View>
 
               <View style={styles.amountContainer}>
@@ -233,6 +250,13 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F4F7FB',
+  },
+
+  advanceUsedText: {
+    fontSize: 11,
+    color: '#1976D2',
+    marginTop: 4,
+    fontWeight: '600',
   },
 
   listContent: {
