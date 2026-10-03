@@ -392,6 +392,7 @@ export default function BillingScreen() {
       ]?.advanceAmount || 0
     );
   };
+  
   const getPaidAmount = (
     customerId: string,
   ) => {
@@ -402,15 +403,6 @@ export default function BillingScreen() {
     );
   };
 
-  const getAdvanceAmount = (
-    customerId: string,
-  ) => {
-    return (
-      savedPayments[
-        customerId
-      ]?.advanceAmount || 0
-    );
-  };
   const updatePayment = async (
     customer: Customer,
   ) => {
@@ -510,7 +502,7 @@ export default function BillingScreen() {
       await savePaymentHistory(
         customer.id!,
         monthString,
-        paymentUsed,
+        newPayment,
         previousAdvanceUsed,
       );
 
@@ -529,7 +521,7 @@ export default function BillingScreen() {
         customer.mobile,
         savedBill.billAmount,
         savedBill.previousAdvanceUsed,
-        paymentUsed,
+        newPayment,
         savedBill.remainingAmount,
         savedBill.advanceAmount,
         savedBill.paidAmount,
@@ -800,9 +792,12 @@ export default function BillingScreen() {
 
             const totalPaid =
               previousAdvanceUsed + cashUsedForBill;
-
             const advanceRemaining =
-              newAdvance;
+              savedPayments[
+                customer.id!
+              ]?.advanceAmount ??
+              previousAdvance;
+
             const isPaid =
               bill > 0 &&
               remaining === 0;
@@ -1023,11 +1018,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5F7FA',
   },
 
-  previousMonthText: {
-    fontSize: 10,
-    color: '#777',
-    marginTop: 2,
-  },
 
   advanceValue: {
     fontSize: 14,
