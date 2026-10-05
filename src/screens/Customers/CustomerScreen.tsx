@@ -33,15 +33,19 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  ActivityIndicator,
 } from 'react-native';
-
 
 
 export default function CustomerScreen() {
 
   const [customers, setCustomers] = useState<Customer[]>([]);
-  const [search, setSearch] = useState('');
-  useFocusEffect(
+ const [search, setSearch] = useState('');
+
+const [deletingCustomer, setDeletingCustomer] =
+  useState<string | null>(null);
+
+useFocusEffect(
     React.useCallback(() => {
       loadCustomers();
     }, []),
@@ -77,11 +81,19 @@ export default function CustomerScreen() {
           onPress: async () => {
             try {
               if (customer.id) {
+                setDeletingCustomer(customer.id);
+
                 await deleteCustomerAndReorder(customer);
-                loadCustomers();
+
+                await loadCustomers();
               }
             } catch (error) {
-              Alert.alert('Error', 'Failed to delete customer');
+              Alert.alert(
+                'Error',
+                'Failed to delete customer',
+              );
+            } finally {
+              setDeletingCustomer(null);
             }
           },
         },
@@ -118,37 +130,55 @@ export default function CustomerScreen() {
         </Text>
       </TouchableOpacity>
       <FlatList
-        data={filteredCustomers}
-        keyExtractor={(item) => item.id ?? Math.random().toString()}
-        renderItem={({ item }) => (
-          <CustomerCard
-            customer={item}
+  data={filteredCustomers}
+  keyExtractor={item =>
+    item.id ?? Math.random().toString()
+  }
+  renderItem={({item}) => (
+    <View style={{position: 'relative'}}>
 
+      <CustomerCard
+        customer={item}
 
-            onStatement={() =>
-              navigation.navigate(
-                'CustomerStatement',
-                {
-                  customer: item,
-                },
-              )
-            }
+        onStatement={() =>
+          navigation.navigate(
+            'CustomerStatement',
+            {
+              customer: item,
+            },
+          )
+        }
 
-            onEdit={() =>
-              navigation.navigate(
-                'AddCustomer',
-                {
-                  customer: item,
-                },
-              )
-            }
+        onEdit={() =>
+          navigation.navigate(
+            'AddCustomer',
+            {
+              customer: item,
+            },
+          )
+        }
 
-            onDelete={() =>
-              handleDelete(item)
-            }
-          />
-        )}
+        onDelete={() =>
+          handleDelete(item)
+        }
       />
+
+      {deletingCustomer === item.id && (
+        <View style={styles.deleteLoading}>
+          <ActivityIndicator
+            size="small"
+            color="#1976D2"
+          />
+
+          <Text style={styles.deleteLoadingText}>
+            Deleting...
+          </Text>
+        </View>
+      )}
+
+    </View>
+  )}
+/>
     </SafeAreaView>
   );
 }
@@ -182,34 +212,34 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     color: '#1976D2',
   },
-searchContainer: {
-  position: 'relative',
-  marginTop: 5,
-  marginBottom: 20,
-},
+  searchContainer: {
+    position: 'relative',
+    marginTop: 5,
+    marginBottom: 20,
+  },
 
-searchLabel: {
-  position: 'absolute',
-  top: -10,
-  left: 14,
-  backgroundColor: '#F5F7FA',
-  paddingHorizontal: 6,
-  zIndex: 1,
-  fontSize: 13,
-  color: '#1976D2',
-  fontWeight: '600',
-},
+  searchLabel: {
+    position: 'absolute',
+    top: -10,
+    left: 14,
+    backgroundColor: '#F5F7FA',
+    paddingHorizontal: 6,
+    zIndex: 1,
+    fontSize: 13,
+    color: '#1976D2',
+    fontWeight: '600',
+  },
 
-search: {
-  backgroundColor: '#fff',
-  borderRadius: 12,
-  paddingHorizontal: 15,
-  paddingVertical: 14,
-  borderWidth: 1,
-  borderColor: '#1976D2',
-  fontSize: 16,
-  color: '#000',
-},
+  search: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    paddingHorizontal: 15,
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: '#1976D2',
+    fontSize: 16,
+    color: '#000',
+  },
 
   addButton: {
     backgroundColor: '#1976D2',
@@ -235,4 +265,24 @@ search: {
     color: '#888',
     fontSize: 16,
   },
+
+  //deleting animation
+  deleteLoading: {
+  position: 'absolute',
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
+  justifyContent: 'center',
+  alignItems: 'center',
+  backgroundColor: 'rgba(255,255,255,0.65)',
+  borderRadius: 12,
+},
+
+deleteLoadingText: {
+  marginTop: 6,
+  color: '#1976D2',
+  fontSize: 12,
+  fontWeight: '600',
+},
 });

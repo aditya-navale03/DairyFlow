@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Alert,
   SafeAreaView,
@@ -10,9 +10,9 @@ import {
 
 
 
-import {useNavigation, useRoute} from '@react-navigation/native';
-import {NativeStackNavigationProp} from '@react-navigation/native-stack';
-import {RouteProp} from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RouteProp } from '@react-navigation/native';
 
 import CustomerForm from '../../components/customer/CustomerForm';
 import LoadingOverlay from '../../components/common/LoadingOverlay';
@@ -21,6 +21,7 @@ import {
   addCustomer,
   updateCustomer,
   getCustomerByCollectionOrder,
+  getNextAvailableCollectionOrder,
 } from '../../services/customer/customerService';
 
 import {
@@ -28,7 +29,7 @@ import {
   insertCustomerAtPosition,
 } from '../../services/customer/customerOrderService';
 
-import {CustomerStackParamList} from '../../navigation/CustomerNavigator';
+import { CustomerStackParamList } from '../../navigation/CustomerNavigator';
 
 type NavigationProp = NativeStackNavigationProp<
   CustomerStackParamList,
@@ -56,6 +57,23 @@ export default function AddCustomerScreen() {
     customer?.collectionOrder?.toString() ?? '',
   );
 
+  useEffect(() => {
+    const loadNextCollectionOrder = async () => {
+      if (customer) {
+        return;
+      }
+
+      const nextNumber =
+        await getNextAvailableCollectionOrder();
+
+      setCollectionOrder(
+        String(nextNumber),
+      );
+    };
+
+    loadNextCollectionOrder();
+  }, [customer]);
+
   const [loading, setLoading] = useState(false);
 
   const onSave = async () => {
@@ -64,6 +82,21 @@ export default function AddCustomerScreen() {
     if (!name || !mobile || !rate || !collectionOrder) {
       setLoading(false);
       Alert.alert('Validation', 'Please fill all fields');
+      return;
+    }
+
+    const rateNumber = Number(rate);
+
+    if (
+      !rate ||
+      isNaN(rateNumber) ||
+      rateNumber <= 0
+    ) {
+      setLoading(false);
+      Alert.alert(
+        'Validation',
+        'Please enter a valid rate',
+      );
       return;
     }
 

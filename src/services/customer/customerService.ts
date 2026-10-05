@@ -57,6 +57,26 @@ return customers.sort(
 );
 };
 
+export const getNextAvailableCollectionOrder =
+  async () => {
+    const customers =
+      await getCustomers();
+
+    let nextNumber = 1;
+
+    while (
+      customers.some(
+        customer =>
+          customer.collectionOrder ===
+          nextNumber,
+      )
+    ) {
+      nextNumber++;
+    }
+
+    return nextNumber;
+  };
+
 
 export const updateCustomer = async (
   id: string,
