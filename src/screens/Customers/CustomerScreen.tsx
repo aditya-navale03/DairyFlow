@@ -33,19 +33,22 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  ActivityIndicator,
+  ActivityIndicator
 } from 'react-native';
 
 
 export default function CustomerScreen() {
 
   const [customers, setCustomers] = useState<Customer[]>([]);
- const [search, setSearch] = useState('');
+  const [search, setSearch] = useState('');
 
-const [deletingCustomer, setDeletingCustomer] =
-  useState<string | null>(null);
+  const [deletingCustomer, setDeletingCustomer] =
+    useState<string | null>(null);
 
-useFocusEffect(
+  const [deletedCustomerName, setDeletedCustomerName] =
+    useState<string | null>(null);
+
+  useFocusEffect(
     React.useCallback(() => {
       loadCustomers();
     }, []),
@@ -86,14 +89,19 @@ useFocusEffect(
                 await deleteCustomerAndReorder(customer);
 
                 await loadCustomers();
+
+                setDeletingCustomer(null);
+                setDeletedCustomerName(customer.name);
+
+                setTimeout(() => {
+                  setDeletedCustomerName(null);
+                }, 2000);
               }
             } catch (error) {
               Alert.alert(
                 'Error',
                 'Failed to delete customer',
               );
-            } finally {
-              setDeletingCustomer(null);
             }
           },
         },
@@ -130,55 +138,83 @@ useFocusEffect(
         </Text>
       </TouchableOpacity>
       <FlatList
-  data={filteredCustomers}
-  keyExtractor={item =>
-    item.id ?? Math.random().toString()
-  }
-  renderItem={({item}) => (
-    <View style={{position: 'relative'}}>
-
-      <CustomerCard
-        customer={item}
-
-        onStatement={() =>
-          navigation.navigate(
-            'CustomerStatement',
-            {
-              customer: item,
-            },
-          )
+        data={filteredCustomers}
+        keyExtractor={item =>
+          item.id ?? Math.random().toString()
         }
+        renderItem={({ item }) => (
+          <View style={{ position: 'relative' }}>
 
-        onEdit={() =>
-          navigation.navigate(
-            'AddCustomer',
-            {
-              customer: item,
-            },
-          )
-        }
+            <CustomerCard
+              customer={item}
 
-        onDelete={() =>
-          handleDelete(item)
-        }
+              onStatement={() =>
+                navigation.navigate(
+                  'CustomerStatement',
+                  {
+                    customer: item,
+                  },
+                )
+              }
+
+              onEdit={() =>
+                navigation.navigate(
+                  'AddCustomer',
+                  {
+                    customer: item,
+                  },
+                )
+              }
+
+              onDelete={() =>
+                handleDelete(item)
+              }
+            />
+
+
+          </View>
+        )}
       />
 
-      {deletingCustomer === item.id && (
-        <View style={styles.deleteLoading}>
+      {deletingCustomer && (
+        <View style={styles.deleteLoadingOverlay}>
           <ActivityIndicator
-            size="small"
+            size="large"
             color="#1976D2"
           />
 
-          <Text style={styles.deleteLoadingText}>
-            Deleting...
+          <Text style={styles.deleteLoadingTitle}>
+            Deleting Customer...
+          </Text>
+
+          <Text style={styles.deleteLoadingMessage}>
+            Please wait
           </Text>
         </View>
       )}
 
-    </View>
-  )}
-/>
+      {deletedCustomerName && (
+        <View style={styles.deleteOverlay}>
+          <View style={styles.deletePopup}>
+
+            <View style={styles.deleteCheckCircle}>
+              <Text style={styles.deleteCheck}>
+                ✓
+              </Text>
+            </View>
+
+            <Text style={styles.deleteTitle}>
+              Customer Deleted
+            </Text>
+
+            <Text style={styles.deleteMessage}>
+              {deletedCustomerName} has been deleted successfully.
+            </Text>
+
+          </View>
+        </View>
+      )}
+
     </SafeAreaView>
   );
 }
@@ -268,21 +304,104 @@ const styles = StyleSheet.create({
 
   //deleting animation
   deleteLoading: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.65)',
+    borderRadius: 12,
+  },
+
+  deleteLoadingText: {
+    marginTop: 6,
+    color: '#1976D2',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+
+  deleteOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 100,
+  },
+
+  deletePopup: {
+    width: '82%',
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 28,
+    alignItems: 'center',
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+  },
+
+  deleteCheckCircle: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: '#4CAF50',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+
+  deleteCheck: {
+    color: '#fff',
+    fontSize: 42,
+    fontWeight: '700',
+  },
+
+  deleteTitle: {
+    fontSize: 21,
+    fontWeight: '700',
+    color: '#222',
+    marginBottom: 8,
+  },
+
+  deleteMessage: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    lineHeight: 21,
+  },
+
+  deleteLoadingOverlay: {
   position: 'absolute',
   top: 0,
   left: 0,
   right: 0,
   bottom: 0,
+  backgroundColor: 'rgba(255,255,255,0.95)',
   justifyContent: 'center',
   alignItems: 'center',
-  backgroundColor: 'rgba(255,255,255,0.65)',
-  borderRadius: 12,
+  zIndex: 200,
 },
 
-deleteLoadingText: {
+deleteLoadingTitle: {
+  marginTop: 20,
+  fontSize: 18,
+  fontWeight: '700',
+  color: '#222',
+},
+
+deleteLoadingMessage: {
   marginTop: 6,
-  color: '#1976D2',
-  fontSize: 12,
-  fontWeight: '600',
+  fontSize: 14,
+  color: '#666',
 },
 });

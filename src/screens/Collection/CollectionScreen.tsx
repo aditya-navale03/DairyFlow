@@ -13,21 +13,25 @@ import {
   View,
   TouchableOpacity,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 
 import AppTextInput from '../../components/common/AppTextInput';
 import { Customer } from '../../types/customer';
-import {subscribeToCustomers} from '../../services/customer/customerService';
+import { subscribeToCustomers } from '../../services/customer/customerService';
 export default function CollectionScreen() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
 
+
+
   const [quantity, setQuantity] = useState('');
+  const [saving, setSaving] = useState(false);
 
   const [session, setSession] =
     useState<'Morning' | 'Evening'>('Morning');
 
-      useEffect(() => {
+  useEffect(() => {
     const unsubscribe = subscribeToCustomers(data => {
       setCustomers(data);
     });
@@ -251,7 +255,19 @@ export default function CollectionScreen() {
             placeholder="Enter quantity"
             keyboardType="decimal-pad"
             value={quantity}
-            onChangeText={setQuantity}
+            onChangeText={text => {
+              // Allow only numbers and one decimal point
+              const cleaned = text.replace(/[^0-9.]/g, '');
+
+              // Allow only one decimal point
+              const parts = cleaned.split('.');
+              const validText =
+                parts.length > 2
+                  ? `${parts[0]}.${parts.slice(1).join('')}`
+                  : cleaned;
+
+              setQuantity(validText);
+            }}
             style={styles.bigInput}
           />
 
@@ -274,14 +290,22 @@ export default function CollectionScreen() {
         <TouchableOpacity
           style={styles.saveButton}
           onPress={async () => {
+            const quantityNumber = Number(quantity);
 
-            if (!quantity) {
+            if (
+              !quantity ||
+              !Number.isFinite(quantityNumber) ||
+              quantityNumber <= 0 ||
+              quantityNumber > 100
+            ) {
               Alert.alert(
                 'Validation',
-                'Enter milk quantity',
+                'Please enter a valid milk quantity (0.01 - 100 L)',
               );
               return;
             }
+
+            setSaving(true);
 
             try {
               const today = new Date()
@@ -311,7 +335,7 @@ export default function CollectionScreen() {
                 date: new Date(),
                 dateString: today,
                 session: session,
-                quantity: Number(quantity),
+                quantity: quantityNumber,
                 rate: customer.rate,
                 amount: amount,
               });
@@ -330,6 +354,8 @@ export default function CollectionScreen() {
                 'Error',
                 'Failed to save collection',
               );
+            } finally {
+              setSaving(false);
             }
           }}>
 
@@ -338,9 +364,26 @@ export default function CollectionScreen() {
           </Text>
 
         </TouchableOpacity>
+</ScrollView>
 
-      </ScrollView>
-    </SafeAreaView>
+{saving && (
+  <View style={styles.saveLoadingOverlay}>
+    <ActivityIndicator
+      size="large"
+      color="#1976D2"
+    />
+
+    <Text style={styles.saveLoadingTitle}>
+      Saving Collection...
+    </Text>
+
+    <Text style={styles.saveLoadingMessage}>
+      Please wait
+    </Text>
+  </View>
+)}
+
+</SafeAreaView>
   );
 }
 
@@ -547,4 +590,28 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
+  saveLoadingOverlay: {
+  position: 'absolute',
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
+  backgroundColor: 'rgba(255,255,255,0.95)',
+  justifyContent: 'center',
+  alignItems: 'center',
+  zIndex: 200,
+},
+
+saveLoadingTitle: {
+  marginTop: 20,
+  fontSize: 18,
+  fontWeight: '700',
+  color: '#222',
+},
+
+saveLoadingMessage: {
+  marginTop: 6,
+  fontSize: 14,
+  color: '#666',
+},
 });

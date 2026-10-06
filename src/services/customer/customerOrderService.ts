@@ -105,48 +105,57 @@ export const moveCustomer = async (
   customer: Customer,
   newOrder: number,
 ) => {
-  if (customer.collectionOrder === newOrder) return;
-
-  const snapshot = await getDocs(collection(db, 'customers'));
+  const snapshot = await getDocs(
+    collection(db, 'customers'),
+  );
 
   const customers = snapshot.docs.map(item => ({
     id: item.id,
     ...item.data(),
   })) as Customer[];
 
+  if (!customer.id) return;
+
+  // Sort by current collection number
+  customers.sort(
+    (a, b) =>
+      Number(a.collectionOrder || 0) -
+      Number(b.collectionOrder || 0),
+  );
+
+  // Remove the customer being moved
+  const remainingCustomers = customers.filter(
+    c => c.id !== customer.id,
+  );
+
+  // Keep the new position within valid range
+  const safeOrder = Math.max(
+    1,
+    Math.min(newOrder, customers.length),
+  );
+
+  // Insert customer at the requested position
+  remainingCustomers.splice(
+    safeOrder - 1,
+    0,
+    customer,
+  );
+
   const batch = writeBatch(db);
 
-  if (newOrder < customer.collectionOrder) {
-    // Moving up
-    customers.forEach(c => {
-      if (
-        c.id !== customer.id &&
-        c.collectionOrder >= newOrder &&
-        c.collectionOrder < customer.collectionOrder
-      ) {
-        batch.update(doc(db, 'customers', c.id!), {
-          collectionOrder: c.collectionOrder + 1,
-        });
-      }
-    });
-  } else {
-    // Moving down
-    customers.forEach(c => {
-      if (
-        c.id !== customer.id &&
-        c.collectionOrder <= newOrder &&
-        c.collectionOrder > customer.collectionOrder
-      ) {
-        batch.update(doc(db, 'customers', c.id!), {
-          collectionOrder: c.collectionOrder - 1,
-        });
-      }
-    });
-  }
+  // Re-number EVERY customer sequentially
+  remainingCustomers.forEach(
+    (c, index) => {
+      if (!c.id) return;
 
-  batch.update(doc(db, 'customers', customer.id!), {
-    collectionOrder: newOrder,
-  });
+      batch.update(
+        doc(db, 'customers', c.id),
+        {
+          collectionOrder: index + 1,
+        },
+      );
+    },
+  );
 
   await batch.commit();
 };
