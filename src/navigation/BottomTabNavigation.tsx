@@ -1,69 +1,98 @@
 import React from 'react';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 
 import DashboardScreen from '../screens/Dashboard/DashboardScreen';
 import CustomerNavigator from './CustomerNavigator';
 import CollectionScreen from '../screens/Collection/CollectionScreen';
 import BillingScreen from '../screens/Billing/BillingScreen';
-import SettingsScreen from '../screens/Settings/SettingsScreen';
+import MissedCollectionScreen from '../screens/MissedCollection/MissedCollectionScreen';
 
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
 export type BottomTabParamList = {
-    Dashboard: undefined;
-    Customers: undefined;
-    Collection: undefined;
-    Billing: undefined;
-    Settings: undefined;
+  Dashboard: undefined;
+  Customers: undefined;
+  Collection: undefined;
+  Billing: undefined;
+  MissedCollection: undefined;
 };
 
 const Tab = createBottomTabNavigator<BottomTabParamList>();
 
 export default function BottomTabNavigator() {
-    return (
-        <Tab.Navigator
-            screenOptions={({ route }) => ({
-                headerShown: false,
-                tabBarActiveTintColor: '#1976D2',
-                tabBarInactiveTintColor: '#888',
-                tabBarIcon: ({ color, size }) => {
-                    let iconName = '';
-                    switch (route.name) {
-                        case 'Dashboard':
-                            iconName = 'home';
-                            break;
+  return (
+    <Tab.Navigator
+      screenOptions={({route}) => ({
+        headerShown: false,
+        tabBarActiveTintColor: '#1976D2',
+        tabBarInactiveTintColor: '#888',
 
-                        case 'Customers':
-                            iconName = 'account';
-                            break;
+        tabBarIcon: ({color, size}) => {
+          let iconName = '';
 
-                        case 'Collection':
-                            iconName = 'database';
-                            break;
+          switch (route.name) {
+            case 'Dashboard':
+              iconName = 'home';
+              break;
 
-                        case 'Billing':
-                            iconName = 'receipt';
-                            break;
+            case 'Customers':
+              iconName = 'account';
+              break;
 
-                        case 'Settings':
-                            iconName = 'cog-outline';
-                            break;
+            case 'Collection':
+              iconName = 'database';
+              break;
 
-                        default:
-                            iconName = 'help-circle';
-                    }
+            case 'Billing':
+              iconName = 'receipt';
+              break;
 
-                    return <Icon name={iconName} size={size} color={color} />;
-                },
-            })}>
-            <Tab.Screen name="Dashboard" component={DashboardScreen} />
-            <Tab.Screen name="Customers" component={CustomerNavigator} />
+            case 'MissedCollection':
+              iconName = 'calendar-edit';
+              break;
 
-            <Tab.Screen name="Collection" component={CollectionScreen} />
-            
-            <Tab.Screen name="Billing" component={BillingScreen} />
-            
-            <Tab.Screen name="Settings" component={SettingsScreen} />
-        </Tab.Navigator>
-    );
+            default:
+              iconName = 'help-circle';
+          }
+
+          return (
+            <Icon
+              name={iconName}
+              size={size}
+              color={color}
+            />
+          );
+        },
+      })}>
+
+      <Tab.Screen
+        name="Dashboard"
+        component={DashboardScreen}
+      />
+
+      <Tab.Screen
+        name="Customers"
+        component={CustomerNavigator}
+      />
+
+      <Tab.Screen
+        name="Collection"
+        component={CollectionScreen}
+      />
+
+      <Tab.Screen
+        name="Billing"
+        component={BillingScreen}
+      />
+
+      <Tab.Screen
+        name="MissedCollection"
+        component={MissedCollectionScreen}
+        options={{
+          tabBarLabel: 'Missed',
+        }}
+      />
+
+    </Tab.Navigator>
+  );
 }

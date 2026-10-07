@@ -8,6 +8,7 @@ import {
   onSnapshot,
   deleteDoc,
   doc,
+  updateDoc,
   collectionGroup,
 } from '@react-native-firebase/firestore';
 
@@ -243,4 +244,25 @@ export const getCustomerCollectionsByDateRange = async (
       item.dateString <= endDate
     );
   });
+};
+
+export const updateMilkCollection = async (
+  date: string,
+  collectionId: string,
+  quantity: number,
+  rate: number,
+) => {
+  await updateDoc(
+    doc(
+      db,
+      'collections',
+      date,
+      'entries',
+      collectionId,
+    ),
+    {
+      quantity,
+      rate,
+    },
+  );
 };
