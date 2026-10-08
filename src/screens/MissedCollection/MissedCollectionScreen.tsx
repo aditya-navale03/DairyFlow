@@ -6,9 +6,9 @@ import {
     Text,
     TouchableOpacity,
     View,
-    FlatList,
     TextInput,
     Alert,
+    ScrollView,
 } from 'react-native';
 
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -118,35 +118,40 @@ export default function MissedCollectionScreen() {
     const [editingQuantity, setEditingQuantity] =
         useState('');
 
+    const [editingRate, setEditingRate] =
+        useState('');
+
     return (
         <SafeAreaView style={styles.container}>
-            <Text style={styles.title}>
-                Missed Collection
-            </Text>
-
-            <Text style={styles.label}>
-                Select Customer
-            </Text>
-
-            <TouchableOpacity
-                style={styles.dateButton}
-                onPress={() =>
-                    setShowCustomers(!showCustomers)
-                }>
-                <Text style={styles.dateText}>
-                    {selectedCustomer
-                        ? selectedCustomer.name
-                        : 'Select Customer'}
+            <ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={{ paddingBottom: 40 }}>
+                <Text style={styles.title}>
+                    Missed Collection
                 </Text>
-            </TouchableOpacity>
 
-            {showCustomers && (
-                <View style={styles.customerList}>
-                    <FlatList
-                        data={customers}
-                        keyExtractor={item => item.id!}
-                        renderItem={({ item }) => (
+                <Text style={styles.label}>
+                    Select Customer
+                </Text>
+
+                <TouchableOpacity
+                    style={styles.customerButton}
+                    onPress={() =>
+                        setShowCustomers(!showCustomers)
+                    }>
+                    <Text style={styles.dateText}>
+                        {selectedCustomer
+                            ? selectedCustomer.name
+                            : 'Select Customer'}
+                    </Text>
+                </TouchableOpacity>
+
+                {showCustomers && (
+                    <View style={styles.customerList}>
+
+                        {customers.map(item => (
                             <TouchableOpacity
+                                key={item.id}
                                 style={styles.customerItem}
                                 onPress={() => {
                                     setSelectedCustomer(item);
@@ -156,226 +161,429 @@ export default function MissedCollectionScreen() {
                                     {item.name}
                                 </Text>
                             </TouchableOpacity>
-                        )}
+                        ))}
+                    </View>
+                )}
+
+                <Text style={styles.label}>
+                    Select Collection Date
+                </Text>
+
+                <TouchableOpacity
+                    style={styles.dateButton}
+                    onPress={() => setShowDatePicker(true)}>
+                    <Text style={styles.dateText}>
+                        {`${String(selectedDate.getDate()).padStart(2, '0')}/${String(
+                            selectedDate.getMonth() + 1,
+                        ).padStart(2, '0')}/${selectedDate.getFullYear()}`}
+                    </Text>
+                </TouchableOpacity>
+
+                {showDatePicker && (
+                    <DateTimePicker
+                        value={selectedDate}
+                        mode="date"
+                        maximumDate={new Date()}
+                        onChange={(event, date) => {
+                            setShowDatePicker(false);
+
+                            if (date) {
+                                setSelectedDate(date);
+                            }
+                        }}
                     />
-                </View>
-            )}
+                )}
 
-            <Text style={styles.label}>
-                Select Collection Date
-            </Text>
-
-            <TouchableOpacity
-                style={styles.dateButton}
-                onPress={() => setShowDatePicker(true)}>
-                <Text style={styles.dateText}>
-                    {`${String(selectedDate.getDate()).padStart(2, '0')}/${String(
-                        selectedDate.getMonth() + 1,
-                    ).padStart(2, '0')}/${selectedDate.getFullYear()}`}
+                <Text style={styles.sectionTitle}>
+                    Collections
                 </Text>
-            </TouchableOpacity>
 
-            {showDatePicker && (
-                <DateTimePicker
-                    value={selectedDate}
-                    mode="date"
-                    maximumDate={new Date()}
-                    onChange={(event, date) => {
-                        setShowDatePicker(false);
-
-                        if (date) {
-                            setSelectedDate(date);
-                        }
-                    }}
-                />
-            )}
-
-            {checkingCollection && (
-                <Text style={styles.checkingText}>
-                    Checking existing collection...
-                </Text>
-            )}
-
-            {!checkingCollection &&
-                selectedCustomer &&
-                !existingMorning &&
-                !existingEvening && (
-                    <Text style={styles.noCollectionText}>
-                        No collection found for this date.
+                {checkingCollection && (
+                    <Text style={styles.checkingText}>
+                        Checking existing collection...
                     </Text>
                 )}
 
-            {!checkingCollection &&
-                existingMorning && (
-                    <View style={styles.existingBox}>
-                        <Text style={styles.existingTitle}>
-                            Morning Collection
+                {!checkingCollection &&
+                    selectedCustomer &&
+                    !existingMorning &&
+                    !existingEvening && (
+                        <Text style={styles.noCollectionText}>
+                            No collection found for this date.
                         </Text>
-
-                        <Text style={styles.existingText}>
-                            Quantity: {existingMorning.quantity} L
-                        </Text>
-
-                        <Text style={styles.existingText}>
-                            Rate: ₹{existingMorning.rate}
-                        </Text>
-                        <TouchableOpacity
-                            style={styles.editButton}
-                            onPress={() => {
-                                setEditingCollection(existingMorning);
-                                setEditingQuantity(
-                                    String(existingMorning.quantity),
-                                );
-                            }}>
-                            <Text style={styles.editButtonText}>
-                                Edit
+                    )}
+                {!checkingCollection &&
+                    existingMorning && (
+                        <View style={styles.existingBox}>
+                            <Text style={styles.existingTitle}>
+                                Morning Collection
                             </Text>
-                        </TouchableOpacity>
-                    </View>
-                )}
 
-            {!checkingCollection &&
-                existingEvening && (
-                    <View style={styles.existingBox}>
-                        <Text style={styles.existingTitle}>
-                            Evening Collection
-                        </Text>
+                            {editingCollection?.id === existingMorning.id ? (
+                                <>
+                                    <Text style={styles.editLabel}>
+                                        Milk Quantity (Litres)
+                                    </Text>
 
-                        <Text style={styles.existingText}>
-                            Quantity: {existingEvening.quantity} L
-                        </Text>
+                                    <TextInput
+                                        placeholder="Enter quantity"
+                                        keyboardType="decimal-pad"
+                                        value={editingQuantity}
+                                        onChangeText={setEditingQuantity}
+                                        style={styles.quantityInput}
+                                    />
 
-                        <Text style={styles.existingText}>
-                            Rate: ₹{existingEvening.rate}
-                        </Text>
-                        <TouchableOpacity
-                            style={styles.editButton}
-                            onPress={() => {
-                                setEditingCollection(existingEvening);
-                                setEditingQuantity(
-                                    String(existingEvening.quantity),
-                                );
-                            }}>
-                            <Text style={styles.editButtonText}>
-                                Edit
+                                    <Text style={styles.editLabel}>
+                                        Rate (₹ per Litre)
+                                    </Text>
+
+                                    <TextInput
+                                        placeholder="Enter rate"
+                                        keyboardType="decimal-pad"
+                                        value={editingRate}
+                                        onChangeText={setEditingRate}
+                                        style={styles.quantityInput}
+                                    />
+
+                                    <TouchableOpacity
+                                        style={styles.saveEditButton}
+                                        onPress={async () => {
+                                            const newQuantity =
+                                                Number(editingQuantity);
+                                            const newRate =
+                                                Number(editingRate);
+
+                                            if (
+                                                !editingQuantity ||
+                                                !Number.isFinite(newQuantity) ||
+                                                newQuantity <= 0 ||
+                                                newQuantity > 100 ||
+                                                !editingRate ||
+                                                !Number.isFinite(newRate) ||
+                                                newRate <= 0
+                                            ) {
+                                                Alert.alert(
+                                                    'Validation',
+                                                    'Please enter a valid quantity and rate',
+                                                );
+                                                return;
+                                            }
+
+                                            try {
+                                                const year =
+                                                    selectedDate.getFullYear();
+
+                                                const month = String(
+                                                    selectedDate.getMonth() + 1,
+                                                ).padStart(2, '0');
+
+                                                const day = String(
+                                                    selectedDate.getDate(),
+                                                ).padStart(2, '0');
+
+                                                const dateString =
+                                                    `${year}-${month}-${day}`;
+
+                                                await updateMilkCollection(
+                                                    dateString,
+                                                    existingMorning.id!,
+                                                    newQuantity,
+                                                    newRate,
+                                                );
+                                                setExistingMorning({
+                                                    ...existingMorning,
+                                                    quantity: newQuantity,
+                                                    rate: newRate,
+                                                });
+
+                                                setEditingCollection(null);
+                                                setEditingQuantity('');
+
+                                                Alert.alert(
+                                                    'Success',
+                                                    'Collection updated successfully',
+                                                );
+                                            } catch (error) {
+                                                console.log(
+                                                    'Update collection error:',
+                                                    error,
+                                                );
+
+                                                Alert.alert(
+                                                    'Error',
+                                                    'Failed to update collection',
+                                                );
+                                            }
+                                        }}>
+                                        <Text style={styles.saveEditText}>
+                                            Save Changes
+                                        </Text>
+                                    </TouchableOpacity>
+
+                                    <TouchableOpacity
+                                        style={styles.cancelEditButton}
+                                        onPress={() => {
+                                            setEditingCollection(null);
+                                            setEditingQuantity('');
+                                        }}>
+                                        <Text style={styles.cancelEditText}>
+                                            Cancel
+                                        </Text>
+                                    </TouchableOpacity>
+                                </>
+                            ) : (
+                                <>
+                                    <Text style={styles.existingText}>
+                                        Quantity: {existingMorning.quantity} L
+                                    </Text>
+
+                                    <Text style={styles.existingText}>
+                                        Rate: ₹{existingMorning.rate}
+                                    </Text>
+
+                                    <TouchableOpacity
+                                        style={styles.editButton}
+                                        onPress={() => {
+                                            setEditingCollection(existingMorning);
+
+                                            setEditingQuantity(
+                                                String(existingMorning.quantity),
+                                            );
+
+                                            setEditingRate(
+                                                String(existingMorning.rate || ''),
+                                            );
+
+                                        }}>
+                                        <Text style={styles.editButtonText}>
+                                            Edit
+                                        </Text>
+                                    </TouchableOpacity>
+                                </>
+                            )}
+                        </View>
+                    )}
+
+                {!checkingCollection &&
+                    existingEvening && (
+                        <View style={styles.existingBox}>
+                            <Text style={styles.existingTitle}>
+                                Evening Collection
                             </Text>
-                        </TouchableOpacity>
-                    </View>
-                )}
-{editingCollection && (
-  <View style={styles.editBox}>
-    <Text style={styles.editTitle}>
-      Edit {editingCollection.session} Collection
-    </Text>
 
-    <TextInput
-      placeholder="Enter quantity"
-      keyboardType="decimal-pad"
-      value={editingQuantity}
-      onChangeText={setEditingQuantity}
-      style={styles.quantityInput}
-    />
+                            {editingCollection?.id === existingEvening.id ? (
+                                <>
+                                    <Text style={styles.editLabel}>
+                                        Milk Quantity (Litres)
+                                    </Text>
 
-    <TouchableOpacity
-      style={styles.saveEditButton}
-      onPress={() => {
-        Alert.alert(
-          'Test',
-          `New quantity: ${editingQuantity}`,
-        );
-      }}>
-      <Text style={styles.saveEditText}>
-        Save Changes
-      </Text>
-    </TouchableOpacity>
+                                    <TextInput
+                                        placeholder="Enter quantity"
+                                        keyboardType="decimal-pad"
+                                        value={editingQuantity}
+                                        onChangeText={setEditingQuantity}
+                                        style={styles.quantityInput}
+                                    />
+                                    <Text style={styles.editLabel}>
+                                        Rate (₹ per Litre)
+                                    </Text>
 
-    <TouchableOpacity
-      style={styles.cancelEditButton}
-      onPress={() => {
-        setEditingCollection(null);
-        setEditingQuantity('');
-      }}>
-      <Text style={styles.cancelEditText}>
-        Cancel
-      </Text>
-    </TouchableOpacity>
-  </View>
-)}
+                                    <TextInput
+                                        placeholder="Enter rate"
+                                        keyboardType="decimal-pad"
+                                        value={editingRate}
+                                        onChangeText={setEditingRate}
+                                        style={styles.quantityInput}
+                                    />
 
-            <Text style={styles.label}>
-                Collection Session
-            </Text>
+                                    <TouchableOpacity
+                                        style={styles.saveEditButton}
+                                        onPress={async () => {
+                                            const newQuantity =
+                                                Number(editingQuantity);
 
-            <View style={styles.sessionRow}>
-                <TouchableOpacity
-                    style={[
-                        styles.sessionButton,
-                        session === 'Morning' &&
-                        styles.sessionButtonActive,
-                    ]}
-                    onPress={() => setSession('Morning')}>
-                    <Text
+                                            const newRate =
+                                                Number(editingRate);
+
+                                            if (
+                                                !editingQuantity ||
+                                                !Number.isFinite(newQuantity) ||
+                                                newQuantity <= 0 ||
+                                                newQuantity > 100 ||
+                                                !editingRate ||
+                                                !Number.isFinite(newRate) ||
+                                                newRate <= 0
+                                            ) {
+                                                Alert.alert(
+                                                    'Validation',
+                                                    'Please enter a valid quantity and rate',
+                                                );
+                                                return;
+                                            }
+
+                                            try {
+                                                const year =
+                                                    selectedDate.getFullYear();
+
+                                                const month = String(
+                                                    selectedDate.getMonth() + 1,
+                                                ).padStart(2, '0');
+
+                                                const day = String(
+                                                    selectedDate.getDate(),
+                                                ).padStart(2, '0');
+
+                                                const dateString =
+                                                    `${year}-${month}-${day}`;
+
+                                                await updateMilkCollection(
+                                                    dateString,
+                                                    existingEvening.id!,
+                                                    newQuantity,
+                                                    newRate,);
+                                                setExistingEvening({
+                                                    ...existingEvening,
+                                                    quantity: newQuantity,
+                                                    rate: newRate,
+                                                });
+
+                                                setEditingCollection(null);
+                                                setEditingQuantity('');
+
+                                                Alert.alert(
+                                                    'Success',
+                                                    'Collection updated successfully',
+                                                );
+                                            } catch (error) {
+                                                console.log(
+                                                    'Update collection error:',
+                                                    error,
+                                                );
+
+                                                Alert.alert(
+                                                    'Error',
+                                                    'Failed to update collection',
+                                                );
+                                            }
+                                        }}>
+                                        <Text style={styles.saveEditText}>
+                                            Save Changes
+                                        </Text>
+                                    </TouchableOpacity>
+
+                                    <TouchableOpacity
+                                        style={styles.cancelEditButton}
+                                        onPress={() => {
+                                            setEditingCollection(null);
+                                            setEditingQuantity('');
+                                        }}>
+                                        <Text style={styles.cancelEditText}>
+                                            Cancel
+                                        </Text>
+                                    </TouchableOpacity>
+                                </>
+                            ) : (
+                                <>
+                                    <Text style={styles.existingText}>
+                                        Quantity: {existingEvening.quantity} L
+                                    </Text>
+
+                                    <Text style={styles.existingText}>
+                                        Rate: ₹{existingEvening.rate}
+                                    </Text>
+
+                                    <TouchableOpacity
+                                        style={styles.editButton}
+                                        onPress={() => {
+                                            setEditingCollection(existingEvening);
+                                            setEditingQuantity(
+                                                String(existingEvening.quantity),
+                                            );
+                                        }}>
+                                        <Text style={styles.editButtonText}>
+                                            Edit
+                                        </Text>
+                                    </TouchableOpacity>
+                                </>
+                            )}
+                        </View>
+                    )}
+
+                <Text style={styles.label}>
+                    Collection Session
+                </Text>
+
+                <View style={styles.sessionRow}>
+                    <TouchableOpacity
                         style={[
-                            styles.sessionText,
+                            styles.sessionButton,
                             session === 'Morning' &&
-                            styles.sessionTextActive,
-                        ]}>
-                        Morning
-                    </Text>
-                </TouchableOpacity>
+                            styles.sessionButtonActive,
+                        ]}
+                        onPress={() => setSession('Morning')}>
+                        <Text
+                            style={[
+                                styles.sessionText,
+                                session === 'Morning' &&
+                                styles.sessionTextActive,
+                            ]}>
+                            Morning
+                        </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={[
+                            styles.sessionButton,
+                            session === 'Evening' &&
+                            styles.sessionButtonActive,
+                        ]}
+                        onPress={() => setSession('Evening')}>
+                        <Text
+                            style={[
+                                styles.sessionText,
+                                session === 'Evening' &&
+                                styles.sessionTextActive,
+                            ]}>
+                            Evening
+                        </Text>
+                    </TouchableOpacity>
+                </View>
+
+                <Text style={styles.label}>
+                    Milk Quantity (Litres)
+                </Text>
+
+                <TextInput
+                    placeholder="Enter quantity"
+                    keyboardType="decimal-pad"
+                    value={quantity}
+                    onChangeText={setQuantity}
+                    style={styles.quantityInput}
+                />
 
                 <TouchableOpacity
-                    style={[
-                        styles.sessionButton,
-                        session === 'Evening' &&
-                        styles.sessionButtonActive,
-                    ]}
-                    onPress={() => setSession('Evening')}>
-                    <Text
-                        style={[
-                            styles.sessionText,
-                            session === 'Evening' &&
-                            styles.sessionTextActive,
-                        ]}>
-                        Evening
+                    style={styles.saveButton}
+                    onPress={() => {
+                        if (!selectedCustomer) {
+                            Alert.alert('Validation', 'Please select a customer');
+                            return;
+                        }
+
+                        if (!quantity) {
+                            Alert.alert('Validation', 'Please enter milk quantity');
+                            return;
+                        }
+
+                        Alert.alert(
+                            'Ready',
+                            `${selectedCustomer.name} - ${quantity} L - ${session}`,
+                        );
+                    }}>
+                    <Text style={styles.saveButtonText}>
+                        Save Collection
                     </Text>
                 </TouchableOpacity>
-            </View>
-
-            <Text style={styles.label}>
-                Milk Quantity (Litres)
-            </Text>
-
-            <TextInput
-                placeholder="Enter quantity"
-                keyboardType="decimal-pad"
-                value={quantity}
-                onChangeText={setQuantity}
-                style={styles.quantityInput}
-            />
-
-            <TouchableOpacity
-                style={styles.saveButton}
-                onPress={() => {
-                    if (!selectedCustomer) {
-                        Alert.alert('Validation', 'Please select a customer');
-                        return;
-                    }
-
-                    if (!quantity) {
-                        Alert.alert('Validation', 'Please enter milk quantity');
-                        return;
-                    }
-
-                    Alert.alert(
-                        'Ready',
-                        `${selectedCustomer.name} - ${quantity} L - ${session}`,
-                    );
-                }}>
-                <Text style={styles.saveButtonText}>
-                    Save Collection
-                </Text>
-            </TouchableOpacity>
+            </ScrollView>
         </SafeAreaView>
     );
 }
@@ -403,10 +611,20 @@ const styles = StyleSheet.create({
 
     dateButton: {
         backgroundColor: '#fff',
-        borderRadius: 10,
+        borderRadius: 12,
         padding: 16,
         borderWidth: 1,
         borderColor: '#90CAF9',
+        marginBottom: 18,
+    },
+
+    customerButton: {
+        backgroundColor: '#fff',
+        borderRadius: 12,
+        padding: 16,
+        borderWidth: 1,
+        borderColor: '#90CAF9',
+        marginBottom: 8,
     },
 
     dateText: {
@@ -505,32 +723,40 @@ const styles = StyleSheet.create({
 
     existingBox: {
         backgroundColor: '#fff',
-        borderRadius: 10,
-        padding: 15,
-        marginTop: 15,
+        borderRadius: 14,
+        padding: 18,
+        marginBottom: 12,
         borderWidth: 1,
-        borderColor: '#90CAF9',
+        borderColor: '#E0E7EF',
+        elevation: 2,
     },
 
     existingTitle: {
-        fontSize: 17,
+        fontSize: 18,
         fontWeight: '700',
         color: '#1976D2',
-        marginBottom: 8,
+        marginBottom: 10,
+    },
+
+    sectionTitle: {
+        fontSize: 20,
+        fontWeight: '700',
+        color: '#222',
+        marginTop: 5,
+        marginBottom: 10,
     },
 
     existingText: {
         fontSize: 15,
-        color: '#333',
-        marginTop: 4,
+        color: '#555',
+        marginTop: 6,
     },
-
     editButton: {
         backgroundColor: '#1976D2',
-        padding: 10,
-        borderRadius: 8,
+        paddingVertical: 12,
+        borderRadius: 10,
         alignItems: 'center',
-        marginTop: 12,
+        marginTop: 14,
     },
 
     editButtonText: {
@@ -539,44 +765,51 @@ const styles = StyleSheet.create({
         fontSize: 14,
     },
 
+    editLabel: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#555',
+        marginBottom: 8,
+    },
+
     editBox: {
-  backgroundColor: '#fff',
-  borderRadius: 10,
-  padding: 15,
-  marginTop: 15,
-  borderWidth: 1,
-  borderColor: '#1976D2',
-},
+        backgroundColor: '#fff',
+        borderRadius: 10,
+        padding: 15,
+        marginTop: 15,
+        borderWidth: 1,
+        borderColor: '#1976D2',
+    },
 
-editTitle: {
-  fontSize: 17,
-  fontWeight: '700',
-  color: '#1976D2',
-  marginBottom: 12,
-},
+    editTitle: {
+        fontSize: 17,
+        fontWeight: '700',
+        color: '#1976D2',
+        marginBottom: 12,
+    },
 
-saveEditButton: {
-  backgroundColor: '#1976D2',
-  padding: 14,
-  borderRadius: 10,
-  alignItems: 'center',
-},
+    saveEditButton: {
+        backgroundColor: '#1976D2',
+        padding: 14,
+        borderRadius: 10,
+        alignItems: 'center',
+    },
 
-saveEditText: {
-  color: '#fff',
-  fontSize: 16,
-  fontWeight: '700',
-},
+    saveEditText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '700',
+    },
 
-cancelEditButton: {
-  marginTop: 10,
-  padding: 12,
-  alignItems: 'center',
-},
+    cancelEditButton: {
+        marginTop: 10,
+        padding: 12,
+        alignItems: 'center',
+    },
 
-cancelEditText: {
-  color: '#666',
-  fontSize: 15,
-  fontWeight: '600',
-},
+    cancelEditText: {
+        color: '#666',
+        fontSize: 15,
+        fontWeight: '600',
+    },
 });
