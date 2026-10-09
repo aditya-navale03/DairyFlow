@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from 'react';
 
 import {
+    ActivityIndicator,
+} from 'react-native';
+
+import {
     SafeAreaView,
     StyleSheet,
     Text,
@@ -24,6 +28,8 @@ export default function MissedCollectionScreen() {
     const [quantity, setQuantity] =
         useState('');
 
+        const [rate, setRate] = useState('');
+
     const [session, setSession] =
         useState<'Morning' | 'Evening'>('Morning');
 
@@ -36,6 +42,8 @@ export default function MissedCollectionScreen() {
     const [checkingCollection, setCheckingCollection] =
         useState(false);
 
+    const [loadingEdit, setLoadingEdit] = useState(false);
+
     const [customers, setCustomers] =
         useState<Customer[]>([]);
 
@@ -44,6 +52,8 @@ export default function MissedCollectionScreen() {
 
     const [showCustomers, setShowCustomers] =
         useState(false);
+
+    const [customerSearch, setCustomerSearch] = useState('');
 
     useEffect(() => {
         const unsubscribe = subscribeToCustomers(
@@ -147,23 +157,41 @@ export default function MissedCollectionScreen() {
                 </TouchableOpacity>
 
                 {showCustomers && (
-                    <View style={styles.customerList}>
+                    <ScrollView
+                        style={styles.customerList}
+                        nestedScrollEnabled
+                        keyboardShouldPersistTaps="handled">
+                        <TextInput
+                            placeholder="Search customer..."
+                            value={customerSearch}
+                            onChangeText={setCustomerSearch}
+                            style={styles.customerSearchInput}
+                            placeholderTextColor="#777777"
+                        />
 
-                        {customers.map(item => (
-                            <TouchableOpacity
-                                key={item.id}
-                                style={styles.customerItem}
-                                onPress={() => {
-                                    setSelectedCustomer(item);
-                                    setShowCustomers(false);
-                                }}>
-                                <Text style={styles.customerName}>
-                                    {item.name}
-                                </Text>
-                            </TouchableOpacity>
-                        ))}
-                    </View>
-                )}
+                        {customers
+                            .filter(item =>
+                                item.name
+                                    .toLowerCase()
+                                    .includes(customerSearch.trim().toLowerCase()),
+                            )
+                            .map(item => (
+
+
+                                <TouchableOpacity
+                                    key={item.id}
+                                    style={styles.customerItem}
+                                    onPress={() => {
+                                        setSelectedCustomer(item);
+                                        setShowCustomers(false);
+                                        setCustomerSearch('');
+                                    }}>
+                                    <Text style={styles.customerName}>
+                                        {item.name}
+                                    </Text>
+                                </TouchableOpacity>
+                            ))}
+                    </ScrollView>)}
 
                 <Text style={styles.label}>
                     Select Collection Date
@@ -284,12 +312,17 @@ export default function MissedCollectionScreen() {
                                                 const dateString =
                                                     `${year}-${month}-${day}`;
 
+                                                setLoadingEdit(true);
+
                                                 await updateMilkCollection(
                                                     dateString,
                                                     existingMorning.id!,
                                                     newQuantity,
                                                     newRate,
                                                 );
+
+
+
                                                 setExistingMorning({
                                                     ...existingMorning,
                                                     quantity: newQuantity,
@@ -298,6 +331,8 @@ export default function MissedCollectionScreen() {
 
                                                 setEditingCollection(null);
                                                 setEditingQuantity('');
+
+                                                setEditingRate('');
 
                                                 Alert.alert(
                                                     'Success',
@@ -313,11 +348,17 @@ export default function MissedCollectionScreen() {
                                                     'Error',
                                                     'Failed to update collection',
                                                 );
+                                            } finally {
+                                                setLoadingEdit(false);
                                             }
                                         }}>
-                                        <Text style={styles.saveEditText}>
-                                            Save Changes
-                                        </Text>
+                                        {loadingEdit ? (
+                                            <ActivityIndicator color="#fff" />
+                                        ) : (
+                                            <Text style={styles.saveEditText}>
+                                                Save Changes
+                                            </Text>
+                                        )}
                                     </TouchableOpacity>
 
                                     <TouchableOpacity
@@ -325,6 +366,8 @@ export default function MissedCollectionScreen() {
                                         onPress={() => {
                                             setEditingCollection(null);
                                             setEditingQuantity('');
+
+                                            setEditingRate('');
                                         }}>
                                         <Text style={styles.cancelEditText}>
                                             Cancel
@@ -354,10 +397,9 @@ export default function MissedCollectionScreen() {
                                                 String(existingMorning.rate || ''),
                                             );
 
+
                                         }}>
-                                        <Text style={styles.editButtonText}>
-                                            Edit
-                                        </Text>
+                                        <Text style={styles.editButtonText}>Edit</Text>
                                     </TouchableOpacity>
                                 </>
                             )}
@@ -436,11 +478,15 @@ export default function MissedCollectionScreen() {
                                                 const dateString =
                                                     `${year}-${month}-${day}`;
 
+                                                setLoadingEdit(true);
+
                                                 await updateMilkCollection(
                                                     dateString,
                                                     existingEvening.id!,
                                                     newQuantity,
                                                     newRate,);
+
+
                                                 setExistingEvening({
                                                     ...existingEvening,
                                                     quantity: newQuantity,
@@ -449,6 +495,8 @@ export default function MissedCollectionScreen() {
 
                                                 setEditingCollection(null);
                                                 setEditingQuantity('');
+
+                                                setEditingRate('');
 
                                                 Alert.alert(
                                                     'Success',
@@ -464,6 +512,8 @@ export default function MissedCollectionScreen() {
                                                     'Error',
                                                     'Failed to update collection',
                                                 );
+                                            } finally {
+                                                setLoadingEdit(false);
                                             }
                                         }}>
                                         <Text style={styles.saveEditText}>
@@ -476,6 +526,8 @@ export default function MissedCollectionScreen() {
                                         onPress={() => {
                                             setEditingCollection(null);
                                             setEditingQuantity('');
+
+                                            setEditingRate('');
                                         }}>
                                         <Text style={styles.cancelEditText}>
                                             Cancel
@@ -499,10 +551,12 @@ export default function MissedCollectionScreen() {
                                             setEditingQuantity(
                                                 String(existingEvening.quantity),
                                             );
+
+                                            setEditingRate(
+                                                String(existingEvening.rate || ''),
+                                            );
                                         }}>
-                                        <Text style={styles.editButtonText}>
-                                            Edit
-                                        </Text>
+                                        <Text style={styles.editButtonText}>Edit</Text>
                                     </TouchableOpacity>
                                 </>
                             )}
@@ -584,11 +638,41 @@ export default function MissedCollectionScreen() {
                     </Text>
                 </TouchableOpacity>
             </ScrollView>
+
+            {loadingEdit && (
+                <View style={styles.loadingOverlay}>
+                    <ActivityIndicator size="large" color="#1976D2" />
+                    <Text style={styles.loadingText}>
+                        Updating collection...
+                    </Text>
+                </View>
+            )}
         </SafeAreaView>
     );
 }
 
 const styles = StyleSheet.create({
+
+    loadingOverlay: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(255, 255, 255, 0.8)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 999,
+        elevation: 10,
+    },
+
+    loadingText: {
+        marginTop: 12,
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#1976D2',
+    },
+
     container: {
         flex: 1,
         backgroundColor: '#F5F7FA',
@@ -635,22 +719,29 @@ const styles = StyleSheet.create({
 
     //customer selector
     customerList: {
-        backgroundColor: '#fff',
-        borderRadius: 10,
-        marginTop: 8,
-        maxHeight: 250,
-        elevation: 4,
-    },
+  backgroundColor: '#fff',
+  borderRadius: 10,
+  marginTop: 8,
+  maxHeight: 200,
+  width: '100%',
+  flexGrow: 0,
+  elevation: 4,
+},
 
     customerItem: {
         padding: 15,
         borderBottomWidth: 1,
         borderBottomColor: '#eee',
+        width: '100%',
+        flexDirection: 'row',
+        alignItems: 'center',
     },
 
     customerName: {
         fontSize: 16,
         color: '#222',
+        flexShrink: 1,
+        flexWrap: 'wrap',
     },
 
     //mornign eeveing
@@ -811,5 +902,19 @@ const styles = StyleSheet.create({
         color: '#666',
         fontSize: 15,
         fontWeight: '600',
+    },
+
+    customerSearchInput: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#90CAF9',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        fontSize: 16,
+        color: '#222222',
+        margin: 12,
+        marginBottom: 8,
+
     },
 });

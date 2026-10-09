@@ -265,4 +265,4 @@ export const updateMilkCollection = async (
       rate,
     },
   );
-};
+}
