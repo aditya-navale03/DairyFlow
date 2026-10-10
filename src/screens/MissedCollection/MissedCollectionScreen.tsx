@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
+
 import {
     ActivityIndicator,
 } from 'react-native';
@@ -13,6 +14,7 @@ import {
     TextInput,
     Alert,
     ScrollView,
+
 } from 'react-native';
 
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -21,14 +23,17 @@ import { subscribeToCustomers } from '../../services/customer/customerService';
 import {
     getCustomerCollection,
     updateMilkCollection,
+    addMilkCollection,
 } from '../../services/collection/collectionService'; import { MilkCollection } from '../../types/collection';
 
 export default function MissedCollectionScreen() {
 
+
     const [quantity, setQuantity] =
         useState('');
 
-        const [rate, setRate] = useState('');
+    const [rate, setRate] = useState('');
+    const [isEditingRate, setIsEditingRate] = useState(false);
 
     const [session, setSession] =
         useState<'Morning' | 'Evening'>('Morning');
@@ -183,6 +188,8 @@ export default function MissedCollectionScreen() {
                                     style={styles.customerItem}
                                     onPress={() => {
                                         setSelectedCustomer(item);
+                                        setRate(String(item.rate));
+                                        setIsEditingRate(false);
                                         setShowCustomers(false);
                                         setCustomerSearch('');
                                     }}>
@@ -261,17 +268,28 @@ export default function MissedCollectionScreen() {
                                         style={styles.quantityInput}
                                     />
 
-                                    <Text style={styles.editLabel}>
-                                        Rate (₹ per Litre)
-                                    </Text>
 
-                                    <TextInput
-                                        placeholder="Enter rate"
-                                        keyboardType="decimal-pad"
-                                        value={editingRate}
-                                        onChangeText={setEditingRate}
-                                        style={styles.quantityInput}
-                                    />
+                                    <Text style={styles.label}>Rate (₹ per Litre)</Text>
+
+                                    <View style={styles.rateInputRow}>
+                                        <TextInput
+                                            placeholder="Enter rate"
+                                            keyboardType="decimal-pad"
+                                            value={rate}
+                                            onChangeText={setRate}
+                                            editable={isEditingRate}
+                                            style={styles.rateInput}
+                                        />
+
+                                        <TouchableOpacity
+                                            style={styles.rateEditButton}
+                                            onPress={() => setIsEditingRate(!isEditingRate)}
+                                        >
+                                            <Text style={styles.rateEditButtonText}>
+                                                {isEditingRate ? 'Done' : 'Edit'}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    </View>
 
                                     <TouchableOpacity
                                         style={styles.saveEditButton}
@@ -615,23 +633,62 @@ export default function MissedCollectionScreen() {
                     style={styles.quantityInput}
                 />
 
+                <Text style={styles.label}>Rate (₹ per Litre)</Text>
+
+                <TextInput
+                    placeholder="Enter rate"
+                    keyboardType="decimal-pad"
+                    value={rate}
+                    onChangeText={setRate}
+                    style={styles.quantityInput}
+                />
+
                 <TouchableOpacity
                     style={styles.saveButton}
-                    onPress={() => {
+                    onPress={async () => {
                         if (!selectedCustomer) {
                             Alert.alert('Validation', 'Please select a customer');
                             return;
                         }
 
-                        if (!quantity) {
-                            Alert.alert('Validation', 'Please enter milk quantity');
+                        const newQuantity = Number(quantity);
+                        const newRate = Number(rate);
+
+                        if (!quantity || !Number.isFinite(newQuantity) || newQuantity <= 0) {
+                            Alert.alert('Validation', 'Please enter a valid quantity');
                             return;
                         }
 
-                        Alert.alert(
-                            'Ready',
-                            `${selectedCustomer.name} - ${quantity} L - ${session}`,
-                        );
+                        if (!rate || !Number.isFinite(newRate) || newRate <= 0) {
+                            Alert.alert('Validation', 'Please enter a valid rate');
+                            return;
+                        }
+
+                        const year = selectedDate.getFullYear();
+                        const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+                        const day = String(selectedDate.getDate()).padStart(2, '0');
+                        const dateString = `${year}-${month}-${day}`;
+
+                        try {
+                            await addMilkCollection({
+                                customerId: selectedCustomer.id!,
+                                customerName: selectedCustomer.name,
+                                collectionOrder: selectedCustomer.collectionOrder,
+                                dateString,
+                                date: selectedDate,
+                                session,
+                                quantity: newQuantity,
+                                rate: newRate,
+                                amount: newQuantity * newRate,
+                            } as MilkCollection);
+
+                            Alert.alert('Success', 'Collection saved successfully');
+                            setQuantity('');
+                            setRate('');
+                        } catch (error) {
+                            console.log('Save collection error:', error);
+                            Alert.alert('Error', 'Failed to save collection');
+                        }
                     }}>
                     <Text style={styles.saveButtonText}>
                         Save Collection
@@ -719,14 +776,14 @@ const styles = StyleSheet.create({
 
     //customer selector
     customerList: {
-  backgroundColor: '#fff',
-  borderRadius: 10,
-  marginTop: 8,
-  maxHeight: 200,
-  width: '100%',
-  flexGrow: 0,
-  elevation: 4,
-},
+        backgroundColor: '#fff',
+        borderRadius: 10,
+        marginTop: 8,
+        maxHeight: 200,
+        width: '100%',
+        flexGrow: 0,
+        elevation: 4,
+    },
 
     customerItem: {
         padding: 15,
@@ -917,4 +974,37 @@ const styles = StyleSheet.create({
         marginBottom: 8,
 
     },
+
+
+    rateInputRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#fff',
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: '#90CAF9',
+        marginBottom: 15,
+        paddingRight: 8,
+    },
+
+    rateInput: {
+        flex: 1,
+        padding: 15,
+        fontSize: 18,
+        color: '#222',
+    },
+
+    rateEditButton: {
+        backgroundColor: '#1976D2',
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 8,
+    },
+
+    rateEditButtonText: {
+        color: '#fff',
+        fontSize: 13,
+        fontWeight: '700',
+    },
+
 });
