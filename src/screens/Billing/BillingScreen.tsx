@@ -368,6 +368,7 @@ export default function BillingScreen() {
       getEveningQuantity(customerId)
     );
   };
+
   const getBillAmount = (
     customer: Customer,
   ) => {
@@ -392,7 +393,7 @@ export default function BillingScreen() {
       ]?.advanceAmount || 0
     );
   };
-  
+
   const getPaidAmount = (
     customerId: string,
   ) => {
@@ -752,55 +753,58 @@ export default function BillingScreen() {
                 customer.id!
               ]?.advanceAmount || 0;
 
-            const previousAdvanceUsed =
-              Math.min(
-                previousAdvance,
-                bill,
-              );
-            const billAfterAdvance =
-              Math.max(
-                bill - previousAdvanceUsed,
-                0,
-              );
+            // const previousAdvance =
+            //   previousAdvances[customer.id!]?.advanceAmount || 0;
 
-            const cashUsedForBill =
-              Math.min(
-                cashPaid,
-                billAfterAdvance,
-              );
+            const savedBill = savedPayments[customer.id!];
 
-            const remaining =
-              Math.max(
-                billAfterAdvance - cashPaid,
-                0,
-              );
+            const previousAdvanceUsed = Math.min(
+              previousAdvance,
+              bill,
+            );
 
-            const unusedPreviousAdvance =
-              Math.max(
-                previousAdvance - bill,
-                0,
-              );
+            const billAfterAdvance = Math.max(
+              bill - previousAdvanceUsed,
+              0,
+            );
 
-            const extraCash =
-              Math.max(
-                cashPaid - billAfterAdvance,
-                0,
-              );
+            // Cash already allocated to this month's bill.
+            const cashUsedForBill = Math.min(
+              cashPaid,
+              billAfterAdvance,
+            );
 
-            const newAdvance =
-              unusedPreviousAdvance + extraCash;
+            // Any saved advance from this month's payment can now
+            // cover a bill increase before being carried forward.
+            const savedAdvance = savedBill?.advanceAmount ?? 0;
+
+            const advanceUsedForBill = Math.min(
+              savedAdvance,
+              Math.max(billAfterAdvance - cashUsedForBill, 0),
+            );
 
             const totalPaid =
-              previousAdvanceUsed + cashUsedForBill;
-            const advanceRemaining =
-              savedPayments[
-                customer.id!
-              ]?.advanceAmount ??
-              previousAdvance;
+              previousAdvanceUsed +
+              cashUsedForBill +
+              advanceUsedForBill;
 
-            const isPaid =
-              bill > 0 &&
-              remaining === 0;
+            const remaining = Math.max(
+              bill - totalPaid,
+              0,
+            );
+
+            const unusedPreviousAdvance = Math.max(
+              previousAdvance - previousAdvanceUsed,
+              0,
+            );
+
+            const newAdvance = Math.max(
+              savedAdvance - advanceUsedForBill,
+              0) + unusedPreviousAdvance;
+
+            const advanceRemaining = newAdvance;
+
+            const isPaid = bill > 0 && remaining === 0;
 
             return (
               <View

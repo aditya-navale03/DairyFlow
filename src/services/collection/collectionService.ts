@@ -263,6 +263,7 @@ export const updateMilkCollection = async (
     {
       quantity,
       rate,
+      amount: quantity * rate,
     },
   );
-}
+};

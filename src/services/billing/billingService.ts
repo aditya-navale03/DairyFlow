@@ -15,13 +15,11 @@ const billsRef = collection(db, 'bills');
 
 const paymentsRef = collection(db, 'payments');
 
-export const saveBillPayment = async (
+
+export const recalculateSavedBill = async (
   customerId: string,
   month: string,
   billAmount: number,
-  previousAdvanceUsed: number,
-  cashPaid: number,
-  advanceAmount: number,
 ) => {
   const q = query(
     billsRef,
@@ -31,62 +29,68 @@ export const saveBillPayment = async (
 
   const snapshot = await getDocs(q);
 
-  const paidAmount =
-    previousAdvanceUsed + cashPaid;
+  if (snapshot.empty) {
+    return null;
+  }
 
-  const remainingAmount =
-    Math.max(
-      billAmount - paidAmount,
-      0,
-    );
+  const billDoc = snapshot.docs[0];
+  const savedBill = billDoc.data();
 
-  const status =
-    remainingAmount <= 0
-      ? 'Paid'
-      : 'Pending';
-
-  const data = {
-    customerId,
-    month,
-
-    // Original bill from milk collection
-    billAmount,
-
-    // Previous month's advance used for this bill
-    previousAdvanceUsed,
-
-    // Cash paid this month
-    cashPaid,
-
-    // Total paid
-    paidAmount,
-
-    // Remaining bill
-    remainingAmount,
-
-    // New advance for next month
-    advanceAmount,
-
-    status,
-  };
-if (!snapshot.empty) {
-  await updateDoc(
-    doc(
-      db,
-      'bills',
-      snapshot.docs[0].id,
-    ),
-    data,
+  const previousAdvanceUsed = Number(
+    savedBill.previousAdvanceUsed || 0,
   );
 
-  return data;
-}
-await addDoc(
-  billsRef,
-  data,
-);
+  const savedCashPaid = Number(savedBill.cashPaid || 0);
+  const savedAdvance = Number(savedBill.advanceAmount || 0);
 
-return data;
+  // Cash already received includes cash allocated to the bill
+  // plus any advance saved from that payment.
+  const totalCashReceived = savedCashPaid + savedAdvance;
+
+  // Reallocate existing cash to the updated bill.
+  const cashNeededAfterPreviousAdvance = Math.max(
+    billAmount - previousAdvanceUsed,
+    0,
+  );
+
+  const cashPaid = Math.min(
+    totalCashReceived,
+    cashNeededAfterPreviousAdvance,
+  );
+
+  const advanceAmount = Math.max(
+    totalCashReceived - cashPaid,
+    0,
+  );
+
+  const paidAmount = previousAdvanceUsed + cashPaid;
+  const remainingAmount = Math.max(
+    billAmount - paidAmount,
+    0,
+  );
+
+  const status =
+    remainingAmount <= 0 ? 'Paid' : 'Pending';
+
+  const updatedBill = {
+    billAmount,
+    cashPaid,
+    advanceAmount,
+    paidAmount,
+    remainingAmount,
+    status,
+  };
+
+  await updateDoc(
+    doc(db, 'bills', billDoc.id),
+    updatedBill,
+  );
+
+  return {
+    ...savedBill,
+    ...updatedBill,
+    previousAdvanceUsed,
+  };
 };
 
 export const subscribeToBillPayments = (
