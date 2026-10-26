@@ -14,6 +14,8 @@ import {
 
 import { MilkCollection } from '../../types/collection';
 
+// import { recalculateSavedBill } from '../billing/billingService';
+
 const db = getFirestore();
 
 
@@ -32,6 +34,10 @@ const db = getFirestore();
 /*
  * ADD MILK COLLECTION
  */
+
+const billsRef = collection(db, 'bills');
+const paymentsRef = collection(db, 'payments');
+
 export const addMilkCollection = async (
   data: MilkCollection,
 ) => {
@@ -246,24 +252,147 @@ export const getCustomerCollectionsByDateRange = async (
   });
 };
 
+
 export const updateMilkCollection = async (
   date: string,
   collectionId: string,
   quantity: number,
   rate: number,
 ) => {
-  await updateDoc(
-    doc(
-      db,
-      'collections',
-      date,
-      'entries',
-      collectionId,
+  const collectionRef = doc(
+    db,
+    'collections',
+    date,
+    'entries',
+    collectionId,
+  );
+
+  // Read the collection before changing it.
+  const existingSnapshot = await getDocs(
+    query(
+      collection(db, 'collections', date, 'entries'),
+      where('__name__', '==', collectionId),
     ),
-    {
-      quantity,
-      rate,
-      amount: quantity * rate,
+  );
+
+  if (existingSnapshot.empty) {
+    throw new Error('Collection not found.');
+  }
+
+  const existingData = existingSnapshot.docs[0].data();
+  const customerId = existingData.customerId;
+
+  // Update the collection.
+  await updateDoc(collectionRef, {
+    quantity,
+    rate,
+    amount: quantity * rate,
+  });
+
+  if (!customerId) {
+    return;
+  }
+
+  // Get all entries and calculate this customer's updated monthly bill.
+  const allEntries = await getDocs(
+    collectionGroup(db, 'entries'),
+  );
+
+  const month = date.slice(0, 7);
+
+  const newBillAmount = allEntries.docs.reduce(
+    (total, item) => {
+      const entry = item.data();
+
+      if (
+        entry.customerId === customerId &&
+        typeof entry.dateString === 'string' &&
+        entry.dateString.startsWith(month)
+      ) {
+        return total + Number(
+          item.id === collectionId &&
+          item.ref.parent.parent?.id === date
+            ? quantity * rate
+            : entry.amount || 0,
+        );
+      }
+
+      return total;
     },
+    0,
+  );
+
+  await recalculateSavedBill(
+    customerId,
+    month,
+    newBillAmount,
   );
 };
+
+
+export const recalculateSavedBill = async (
+  customerId: string,
+  month: string,
+  billAmount: number,
+) => {
+  const q = query(
+    billsRef,
+    where('customerId', '==', customerId),
+    where('month', '==', month),
+  );
+
+  const snapshot = await getDocs(q);
+
+  if (snapshot.empty) {
+    return null;
+  }
+
+  const billDoc = snapshot.docs[0];
+  const savedBill = billDoc.data();
+
+  // Preserve the total cash received; do not create payment history.
+  const previousAdvanceUsed = Number(
+    savedBill.previousAdvanceUsed || 0,
+  );
+  const totalCashReceived =
+    Number(savedBill.cashPaid || 0) +
+    Number(savedBill.advanceAmount || 0);
+
+  const cashNeeded = Math.max(
+    billAmount - previousAdvanceUsed,
+    0,
+  );
+
+  const cashPaid = Math.min(totalCashReceived, cashNeeded);
+  const advanceAmount = Math.max(
+    totalCashReceived - cashPaid,
+    0,
+  );
+  const paidAmount = previousAdvanceUsed + cashPaid;
+  const remainingAmount = Math.max(
+    billAmount - paidAmount,
+    0,
+  );
+
+  const status = remainingAmount === 0 ? 'Paid' : 'Pending';
+
+  await updateDoc(doc(db, 'bills', billDoc.id), {
+    billAmount,
+    cashPaid,
+    advanceAmount,
+    paidAmount,
+    remainingAmount,
+    status,
+  });
+
+  return {
+    ...savedBill,
+    billAmount,
+    cashPaid,
+    advanceAmount,
+    paidAmount,
+    remainingAmount,
+    status,
+  };
+};
+

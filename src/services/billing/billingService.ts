@@ -219,3 +219,48 @@ export const getCustomerBill = async (
     ...snapshot.docs[0].data(),
   };
 };
+
+
+export const saveBillPayment = async (
+  customerId: string,
+  month: string,
+  billAmount: number,
+  previousAdvanceUsed: number,
+  totalCashPaid: number,
+  newAdvance: number,
+) => {
+  const paidAmount = previousAdvanceUsed + totalCashPaid;
+  const remainingAmount = Math.max(billAmount - paidAmount, 0);
+  const status = remainingAmount <= 0 ? 'Paid' : 'Pending';
+
+  const billData = {
+    customerId,
+    month,
+    billAmount,
+    previousAdvanceUsed,
+    cashPaid: totalCashPaid,
+    advanceAmount: newAdvance,
+    paidAmount,
+    remainingAmount,
+    status,
+  };
+
+  const q = query(
+    billsRef,
+    where('customerId', '==', customerId),
+    where('month', '==', month),
+  );
+
+  const snapshot = await getDocs(q);
+
+  if (snapshot.empty) {
+    const billRef = await addDoc(billsRef, billData);
+    return { id: billRef.id, ...billData };
+  }
+
+  const billDoc = snapshot.docs[0];
+
+  await updateDoc(doc(db, 'bills', billDoc.id), billData);
+
+  return { id: billDoc.id, ...billData };
+};
