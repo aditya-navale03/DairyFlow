@@ -33,7 +33,7 @@ import {
 import {
   saveBillPayment,
   subscribeToBillPayments,
-  getPreviousMonthAdvance,
+  getPreviousMonthAdvances,
   savePaymentHistory,
   getCustomerPaymentHistory,
 } from '../../services/billing/billingService';
@@ -219,44 +219,45 @@ export default function BillingScreen() {
 
     return unsubscribe;
   }, [monthString]);
+
+
   useEffect(() => {
+    let cancelled = false;
+
     const loadPreviousAdvances = async () => {
-      setLoadingAdvances(true)
-      const advanceData: {
-        [customerId: string]: {
-          advanceAmount: number;
-          previousMonth: string;
-        };
-      } = {};
-      await Promise.all(
-        customers.map(async customer => {
-          if (!customer.id) return;
+      setAdvancesLoaded(false);
 
-          const result =
-            await getPreviousMonthAdvance(
-              customer.id,
-              monthString,
-            );
+      try {
+        const advanceData =
+          await getPreviousMonthAdvances(monthString);
 
-          advanceData[customer.id] = {
-            advanceAmount: result.advanceAmount,
-            previousMonth: result.previousMonth,
-          };
-        }),
-      );
-      setPreviousAdvances(advanceData);
-      setAdvancesLoaded(true);
+        if (!cancelled) {
+          setPreviousAdvances(advanceData);
+        }
+      } catch (error) {
+        console.log('Failed to load previous advances:', error);
 
+        if (!cancelled) {
+          setPreviousAdvances({});
+        }
+      } finally {
+        if (!cancelled) {
+          setAdvancesLoaded(true);
+        }
+      }
     };
-    setPreviousAdvances({});
 
     if (customers.length > 0) {
       loadPreviousAdvances();
     } else {
-      setIsLoading(false);
+      setPreviousAdvances({});
+      setAdvancesLoaded(true);
     }
-  }, [customers, monthString]);
 
+    return () => {
+      cancelled = true;
+    };
+  }, [customers, monthString]);
 
   useEffect(() => {
     if (
@@ -798,10 +799,10 @@ export default function BillingScreen() {
               0,
             );
 
-            const newAdvance = Math.max(
-              savedAdvance - advanceUsedForBill,
-              0) + unusedPreviousAdvance;
-
+            const newAdvance = savedBill
+              ? Math.max(savedAdvance - advanceUsedForBill, 0)
+              : unusedPreviousAdvance;
+              
             const advanceRemaining = newAdvance;
 
             const isPaid = bill > 0 && remaining === 0;

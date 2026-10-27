@@ -275,8 +275,8 @@ export default function MissedCollectionScreen() {
                                         <TextInput
                                             placeholder="Enter rate"
                                             keyboardType="decimal-pad"
-                                            value={rate}
-                                            onChangeText={setRate}
+                                            value={editingRate}
+                                            onChangeText={setEditingRate}
                                             editable={isEditingRate}
                                             style={styles.rateInput}
                                         />

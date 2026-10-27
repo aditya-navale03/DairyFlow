@@ -264,3 +264,42 @@ export const saveBillPayment = async (
 
   return { id: billDoc.id, ...billData };
 };
+
+
+export const getPreviousMonthAdvances = async (
+  currentMonth: string,
+) => {
+  const [year, month] = currentMonth.split('-').map(Number);
+
+  const previousDate = new Date(year, month - 2, 1);
+
+  const previousMonth =
+    `${previousDate.getFullYear()}-${String(
+      previousDate.getMonth() + 1,
+    ).padStart(2, '0')}`;
+
+  const q = query(
+    billsRef,
+    where('month', '==', previousMonth),
+  );
+
+  const snapshot = await getDocs(q);
+
+  const advanceData: {
+    [customerId: string]: {
+      advanceAmount: number;
+      previousMonth: string;
+    };
+  } = {};
+
+  snapshot.docs.forEach(billDoc => {
+    const bill = billDoc.data();
+
+    advanceData[bill.customerId] = {
+      advanceAmount: Number(bill.advanceAmount || 0),
+      previousMonth,
+    };
+  });
+
+  return advanceData;
+};
