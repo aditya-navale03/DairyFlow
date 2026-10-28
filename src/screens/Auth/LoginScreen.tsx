@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useEffect, useState} from 'react';
 import {
   SafeAreaView,
   StyleSheet,
@@ -12,6 +12,9 @@ import {
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {RootStackParamList} from '../../navigation/RootNavigator';
 
+import NetInfo from '@react-native-community/netinfo';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+
 type Props = NativeStackScreenProps<RootStackParamList, 'Login'>;
 
 import {Colors, Spacing} from '../../theme';
@@ -22,6 +25,27 @@ export default function LoginScreen({navigation}: Props) {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 const [loading, setLoading] = useState(false);
+
+const [isOnline, setIsOnline] = useState<boolean | null>(null);
+useEffect(() => {
+  const unsubscribe = NetInfo.addEventListener(state => {
+    if (
+      state.isConnected === false ||
+      state.isInternetReachable === false
+    ) {
+      setIsOnline(false);
+    } else if (
+      state.isConnected === true &&
+      state.isInternetReachable === true
+    ) {
+      setIsOnline(true);
+    } else {
+      setIsOnline(null);
+    }
+  });
+
+  return unsubscribe;
+}, []);
 
 const onLogin = async () => {
   if (!email.trim() || !password.trim()) {
@@ -62,6 +86,8 @@ navigation.replace('Main');    // Navigation to Dashboard will be added in the n
   }
 };
 
+
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
@@ -70,6 +96,48 @@ navigation.replace('Main');    // Navigation to Dashboard will be added in the n
         <Text style={styles.title}>Dairy Manager</Text>
 
         <Text style={styles.subtitle}>Welcome Back</Text>
+
+        <View
+  style={[
+    styles.networkStatus,
+    {
+      backgroundColor:
+        isOnline === true
+          ? '#DCFCE7'
+          : isOnline === false
+          ? '#FEE2E2'
+          : '#FEF3C7',
+    },
+  ]}>
+  <Icon
+    name={isOnline === true ? 'wifi' : 'wifi-off'}
+    size={16}
+    color={
+      isOnline === true
+        ? '#166534'
+        : isOnline === false
+        ? '#991B1B'
+        : '#854D0E'
+    }
+  />
+
+  <Text
+    style={{
+      color:
+        isOnline === true
+          ? '#166534'
+          : isOnline === false
+          ? '#991B1B'
+          : '#854D0E',
+      fontWeight: '600',
+    }}>
+    {isOnline === true
+      ? 'Online'
+      : isOnline === false
+      ? 'Offline — Check your internet'
+      : 'Checking connection...'}
+  </Text>
+</View>
 
         <TextInput
           style={styles.input}
@@ -113,6 +181,28 @@ navigation.replace('Main');    // Navigation to Dashboard will be added in the n
 }
 
 const styles = StyleSheet.create({
+
+  networkStatus: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  alignSelf: 'center',
+  gap: 6,
+  paddingHorizontal: 12,
+  paddingVertical: 7,
+  borderRadius: 20,
+  marginVertical: 12,
+},
+
+onlineText: {
+  color: '#166534',
+},
+offlineText: {
+  color: '#991B1B',
+},
+checkingText: {
+  color: '#854D0E',
+},
+
   container: {
     flex: 1,
     backgroundColor: Colors.background,

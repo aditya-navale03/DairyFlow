@@ -8,6 +8,8 @@ import {
   View,
 } from 'react-native';
 
+import {logout} from '../../services/auth/authService';
+
 import {
   subscribeToCustomers,
 } from '../../services/customer/customerService';
@@ -295,10 +297,33 @@ const todayDate = new Date().toLocaleDateString(
   },
 );
 
+const handleLogout = () => {
+  Alert.alert(
+    'Logout',
+    'Are you sure you want to logout?',
+    [
+      {text: 'Cancel', style: 'cancel'},
+      {
+        text: 'Logout',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await logout();
+            navigation.replace('Login');
+          } catch (error) {
+            Alert.alert('Error', 'Unable to logout. Please try again.');
+          }
+        },
+      },
+    ],
+  );
+};
+
   return (
     <View style={styles.container}>
 
       <AppHeader title="Dashboard" />
+      
 
       <View style={styles.dateHeader}>
 
@@ -315,6 +340,7 @@ const todayDate = new Date().toLocaleDateString(
   </Text>
 
 </View>
+
 
       <ScrollView
         contentContainerStyle={styles.content}

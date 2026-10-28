@@ -3,18 +3,24 @@ import {View, Text, StyleSheet} from 'react-native';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {RootStackParamList} from '../../navigation/RootNavigator';
 import {Colors} from '../../theme';
+import {getAuth, onAuthStateChanged} from '@react-native-firebase/auth';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Splash'>;
 
 export default function SplashScreen({navigation}: Props) {
-  useEffect(() => {
-    const timer = setTimeout(() => {
+useEffect(() => {
+  const auth = getAuth();
+
+  const unsubscribe = onAuthStateChanged(auth, user => {
+    if (user) {
+      navigation.replace('Main');
+    } else {
       navigation.replace('Login');
-    }, 2000);
+    }
+  });
 
-    return () => clearTimeout(timer);
-  }, [navigation]);
-
+  return unsubscribe;
+}, [navigation]);
   return (
     <View style={styles.container}>
       <Text style={styles.title}>🥛 Dairy Manager</Text>
